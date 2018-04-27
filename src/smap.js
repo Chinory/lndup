@@ -19,10 +19,29 @@
 
 class SMap {
     constructor () { this.k = []; this.v = []; }
-    i(k) {var s = 0, e = this.k.length, m; while (s < e) m = (s + e) >> 1, k > this.k[m] ? s = m + 1: e = m; return s;}
-    add(i, k, v) {this.k.splice(i, 0, k); this.v.splice(i, 0, v); return i;}
-    del(i) {this.k.splice(i, 1); return this.v.splice(i, 1);}
-    loc(k, v) {const i = this.i(k); return k===this.k[i]?i:this.add(i, k, v);}
-    loc_smap(k) {const i = this.i(k); return k===this.k[i]?i:this.add(i, k, new SMap());}
-    loc_array(k) {const i = this.i(k); return k===this.k[i]?i:this.add(i, k, []);}
+    i(k) {
+        var s = 0, e = this.k.length, m; 
+        while (s < e) m = (s + e) >> 1, k > this.k[m] ? s = m + 1: e = m; 
+        return s;
+    }
+    add(i, k, v) {  // Dangerous
+        this.k.splice(i, 0, k); 
+        this.v.splice(i, 0, v); 
+        return i;
+    }
+    del(i) {
+        this.k.splice(i, 1); 
+        return this.v.splice(i, 1);
+    }
+    get_smap(k) {
+        var i = this.i(k); 
+        if (k !== this.k[i]) i = this.add(i, k, new SMap());
+        return this.v[i];
+    }
+    get_array(k) {
+        var i = this.i(k); 
+        if (k !== this.k[i]) i = this.add(i, k, []);
+        return this.v[i];
+    }
 }
+

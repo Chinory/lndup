@@ -134,7 +134,7 @@ if (process.argv[2] === '--hasher') {
         return new Promise(resolve => { var n = 0;
             console.time('#Profile: Time: scheme');
             console.time('#Profile: Time: 1-probe');
-            var map_dev = new Map();
+            var map_dev = new SMap();
             var select_n=0, select_size=0, stat_n=0, stat_size=0, readdir_n=0, readdir_size=0;
             function done() {
                 printt(['#Stat: 1-probe: Readdir:', readdir_n, szstr(readdir_size)],
@@ -162,7 +162,7 @@ if (process.argv[2] === '--hasher') {
                         } else if (stat.isFile()) {
                             stat_size += stat.size;
                             if (stat.size > 0) {
-                                map_dev.getd_map(stat.dev).getd_map(stat.size).getd_map('').getd_array(stat.ino).push(path);
+                                map_dev.loc_smap(stat.dev).loc_smap(stat.size).loc_smap('').loc_array(stat.ino).push(path);
                                 ++select_n; select_size+=stat.size;
                             }
                         }
