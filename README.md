@@ -7,7 +7,7 @@ Tiny program to hardlink duplicate files optimally
 - Hash least files, multi-process hashing with small file acceleration
 - ~~Fill your memory~~
 
-## Usuage
+## Usage
 
 ```shell
 $ lndup [PATH] [PATH] [PATH]...
