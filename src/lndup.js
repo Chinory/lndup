@@ -212,9 +212,9 @@ if (process.argv[2] === '--hasher') {
                                     ++fc_n; fc_ext += size;
                                     send(paths[0], [map_hash, ino, paths]);
                                 } else {
-                                    let fd;
                                     ++hash_int_n; hash_int_size += size;
                                     ++fc_n; fc_int += size;
+                                    let fd;
                                     try { 
                                         fd = fs.openSync(paths[0], 'r');
                                         const hasher = crypto.createHash('sha1');
