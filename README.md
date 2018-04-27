@@ -33,6 +33,8 @@ A summary will be output to `stdout` after finished, like this:
 
 Columns: Prefix, Action, Freed Space, Freed Space(Bytes), Count of Link Sources, Count of Link Destinations
 
+Profiles and Stats outputs are also online. See Performance
+
 ### Use Safely
 
 `stderr` outputs failed operations with format `ln -f -- 'src' 'dst' #Error:...`  . For  `ln` outputs, you can choose whether to execute without losing data. But beware of `mv` `rm` outputs, they are remedies of failed `ln` operations, **you must ensure them to be done**.
@@ -50,13 +52,10 @@ Fortunately, remedies rarely fail, as they are all counter-operations of just-su
 
 ## Performance
 
-#### Hardware
+### Linux 4.14: 3x Linux root + 1x Windows C: Disk
 
-- Disk: SSD,
-- CPU: 8x Intel CPU @ 2.60GHz
-- Memory: 16G
-
-#### Result/Output
+- 8x Intel CPU @ 2.60GHz, 16G DDR3 Memory, SSD
+- Linux root are all **ext4**, Windows C: Disk is mounted by **ntfs-3g**
 
 ```shell
 $ sudo ./lndup.dry /usr /etc /var /boot /home /opt /root /media/linux1/ /media/linux2/ /media/win10/ 2>/dev/null
@@ -87,6 +86,63 @@ $ sudo ./lndup.dry /usr /etc /var /boot /home /opt /root /media/linux1/ /media/l
 
 - the small file size criteria `SMALL_FILE` is adaptive, so this is the average 3.7KiB
 - memory killer, even there are 8 work processes not mentioned here, each one of them used about 40M, so the real total memory usage is about **1209.44MiB**
+
+### Windows 10: C:\Windows
+
+- 8x Intel CPU @ 2.60GHz, 16G DDR3 Memory, SSD
+
+```shell
+lndup>node lndup.dry "C:\Windows" 2>nul
+#Stat: 1-probe: Readdir:   27070   18.13MiB
+#Stat: 1-probe: Stat:     161881  23.873GiB
+#Stat: 1-probe: Select:   134768  23.873GiB
+#Profile: Time: 1-probe: 10033.147ms
+#Stat: 2-verify: Hash-Int:  63.32MiB   1.15%  51503  58.66%    1.3KiB    1.00x
+#Stat: 2-verify: Hash-Ext:  5.330GiB  98.85%  36292  41.34%  154.0KiB  122.32x
+#Stat: 2-verify: SMALL_FILE: avg: 4.3KiB
+#Profile: Time: 2-verify: 9790.634ms
+#Profile: Time: 3-solve: 143.799ms
+#Profile: Time: scheme: 19969.387ms
+#Profile: Time: execute: 12.100ms
+#Profile: Memory: rss: 148.43MiB
+#Profile: Memory: heapTotal: 123.21MiB
+#Profile: Memory: heapUsed: 89.85MiB
+#Profile: Memory: external: 16.5KiB
+#Result: TODO:  1.495GiB  1605673630  10958  18379
+#Result: DONE:        0B           0      0      0
+#Result: FAIL:        0B           0      0      0
+```
+
+- **probe** is much slower than on Linux, so about Windows... nothing I can do(
+
+### Windows 10: 3x Media Disks
+
+- 8x Intel CPU @ 2.60GHz, 16G DDR3 Memory, **HDD**
+- The size of files varies in a large range, including some **same-size big file**
+
+```shell
+lndup>node lndup.dry D: E: F: 2>nul
+#Stat: 1-probe: Readdir:    5105     9.67MiB
+#Stat: 1-probe: Stat:     122320  441.091GiB
+#Stat: 1-probe: Select:   117085  441.091GiB
+#Profile: Time: 1-probe: 17175.348ms
+#Stat: 2-verify: Hash-Int:   60.28MiB   0.13%  39816  54.80%   1.6KiB    1.00x
+#Stat: 2-verify: Hash-Ext:  45.907GiB  99.87%  32838  45.20%  1.43MiB  945.61x
+#Stat: 2-verify: SMALL_FILE: avg: 4.7KiB
+#Profile: Time: 2-verify: 750492.623ms
+#Profile: Time: 3-solve: 100.584ms
+#Profile: Time: scheme: 767769.280ms
+#Profile: Time: execute: 11.359ms
+#Profile: Memory: rss: 116.61MiB
+#Profile: Memory: heapTotal: 83.09MiB
+#Profile: Memory: heapUsed: 64.94MiB
+#Profile: Memory: external: 8.5KiB
+#Result: TODO:  5.396GiB  5794002877  18531  23337
+#Result: DONE:        0B           0      0      0
+#Result: FAIL:        0B           0      0      0
+```
+
+- As you can see, **verify** took almost 13 minutes, just because it distinguish a group of files by hashing all the files whole, so it stupidly hashed 45GiB data to found nothing. I may need a multi-stream-diff algorithm... 
 
 ## Introduction
 
