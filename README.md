@@ -4,7 +4,8 @@ Tiny program to hardlink duplicate files optimally
 
 - Asynchronous I/O
 - One file one stat() system call
-- Less files to hash
+- Hash least files, multi-process hashing with small file acceleration
+- ~~Fill your memory~~
 
 ## Usuage
 
@@ -45,7 +46,47 @@ Fortunately, remedies rarely fail, as they are all counter-operations of just-su
 ## Tested
 
 - Linux 4.14: ext4, ntfs-3g
-- Windows 10: NTFS
+- ~~Windows 10: NTFS~~ **Out of date, new version not test yet**
+
+## Performance
+
+#### Hardware
+
+- Disk: SSD,
+- CPU: 8x Intel CPU @ 2.60GHz
+- Memory: 16G
+
+#### Result/Output
+
+```shell
+$ sudo ./lndup.dry /usr /etc /var /boot /home /opt /root /media/linux1/ /media/linux2/ /media/win10/ 2>/dev/null
+#Stat: 1-probe: Readdir:   137753  108.46MiB
+#Stat: 1-probe: Stat:     1254845  72.167GiB
+#Stat: 1-probe: Select:    987723  72.167GiB
+#Profile: Time: 1-probe: 26721.298ms
+#Stat: 2-verify: Hash-Int:  806.89MiB   4.45%  522734  60.93%   1.6KiB   1.00x
+#Stat: 2-verify: Hash-Ext:  16.935GiB  95.55%  335163  39.07%  53.0KiB  33.52x
+#Stat: 2-verify: SMALL_FILE: avg: 3.7KiB
+#Profile: Time: 2-verify: 193733.672ms
+#Profile: Time: 3-solve: 213.278ms
+#Profile: Time: scheme: 220668.508ms
+#Profile: Time: execute: 17.160ms
+#Profile: Memory: rss: 889.44MiB
+#Profile: Memory: heapTotal: 633.13MiB
+#Profile: Memory: heapUsed: 565.48MiB
+#Profile: Memory: external: 8.5KiB
+#Result: TODO:  4.829GiB  5185105911  89447  147148
+#Result: DONE:        0B           0      0       0
+#Result: FAIL:        0B           0      0       0
+```
+
+- probe files may duplicate in **1,254,845** files in **26s**. 
+- the size 108.46MiB of Readdir mean all path strings' size
+- master process hashed **60.93%** of files but only **4.45%** of data, this is the small file acceleration
+
+
+- the small file size criteria `SMALL_FILE` is adaptive, so this is the average 3.7KiB
+- memory killer, even there are 8 work processes not mentioned here, each one of them used about 40M, so the real total memory usage is about **1209.44MiB**
 
 ## Introduction
 
@@ -71,9 +112,11 @@ Use a fully asynchronous recursive traversal process to fill I/O.
 
 ### verify
 
-This process is fully synchronous, as it was originally designed to deal with massive small files. By using a single buffer to cache data for hashing, it can process big files with limited memory usage as well.
+~~This process is fully synchronous~~, as it was originally designed to deal with massive small files. By using a single buffer to cache data for hashing, it can process big files with limited memory usage as well.
 
-**TODO:** Make it take advantage of multi-core. 
+This step is multi-processed now, while small files are still processed in the master processs
+
+**TODO:** ~~Make it take advantage of multi-core.~~ **Out of date, done**
 
 ### plan
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// hasher.js: prototype of lndup's adaptive multi-process hasher
+// hasher.js: prototype of lndup's multi-process hasher
 // Copyright (C) 2018  Chinory
 
 // This program is free software: you can redistribute it and/or modify
@@ -37,6 +37,7 @@ if (process.argv[2] === '--hasher') {
             var hash=hasher.update(buff.slice(0, len)).digest();
         } catch (e) {
             process.stdout.write(fail);
+            process.stderr.write(e.toString());
         }
         if(fd){
             try{fs.closeSync(fd)}catch(e){}
@@ -47,30 +48,32 @@ if (process.argv[2] === '--hasher') {
 } else {
 const child_process = require('child_process');
 const CPU_N = require('os').cpus().length;
-function hasher(callback, max_n=CPU_N) {
-    var procs=[],queue=[],cur=0;
+function logerr(err) {console.error('#%s', err)}
+function hasher(callback, n) {
+    var procs=[],queue=[],i=n;
     function spawn() {
         const q=[],p=child_process.spawn(process.argv0,[process.argv[1],'--hasher'],{windowsHide:true});
         p.stdout.on("readable",()=>{for(var a;null!==(a=p.stdout.read(20));)callback(a,q.shift())});
+        p.stderr.on("data",logerr);
         procs.push(p);queue.push(q);
     }
     function send(path, extra) {
-        const n=procs.length;
-        for(var i=0;i<n&&queue[i].length>0;++i);
-        i>=n&&(n<max_n?spawn():cur<n?i=cur++:(cur=1,i=0));
         queue[i].push(extra);
-        procs[i].stdin.write(`${path}\n`);
+        procs[i].stdin.write(path);
+        procs[i].stdin.write('\n');
+        if(++i===n)i=0;
     }
     function kill() {
         for(const p of procs)p.stdin.write('\n');
-        procs=[];queue=[];cur=0;
+        procs=undefined;queue=undefined;i=undefined;
     }
+    do{spawn()}while(--i>0);
     return [send, kill];
 }
 function callback(hash, path) {
     console.log(`${hash.toString('hex')}  ${path}`);
 }
-const [send, kill] = hasher(callback);
+const [send, kill] = hasher(callback, CPU_N);
 process.stdin.on('close', kill);
 const rl = require('readline').createInterface({
     input:process.stdin,
