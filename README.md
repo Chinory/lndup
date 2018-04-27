@@ -46,7 +46,7 @@ Fortunately, remedies rarely fail, as they are all counter-operations of just-su
 ## Tested
 
 - Linux 4.14: ext4, ntfs-3g
-- ~~Windows 10: NTFS~~ **Out of date, new version not test yet**
+- Windows 10: NTFS
 
 ## Performance
 
@@ -112,9 +112,7 @@ Use a fully asynchronous recursive traversal process to fill I/O.
 
 ### verify
 
-~~This process is fully synchronous~~, as it was originally designed to deal with massive small files. 
-
-This step is multi-processed now, while small files are still processed in the master processs
+Multi-processed, while small files are still processed in the master processs
 
 ### solve
 
