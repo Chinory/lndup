@@ -81,3 +81,70 @@ class SMap {
     }
 }
 
+// class SAMap extends Array {  // Sorted Map includes Array 
+//     constructor () { super(arguments); }
+//     search(k) {
+//         var s = 0, m, e = this.length; 
+//         while (s < e) {
+//             m = s + e >> 1;
+//             k > this.k[m][0] ? s = m + 1: e = m; 
+//         }
+//         return s;
+//     }
+//     set(k, a) { 
+//         var i = this.search(k); 
+//         if (k === this.k[i][0]) {
+//             this[i] = a;
+//         } else {
+//             this.splice(i, 0, a); 
+//         }
+//         return this;
+//     }
+//     get(k) { 
+//         var i = this.search(k); 
+//         return k === this[i][0] ? this[i] : undefined; 
+//     }
+//     delete(k) {
+//         var i = this.search(k); 
+//         if (k === this.k[i][0]) {
+//             this.splice(i, 1); 
+//             return true;
+//         } else {
+//             return false;
+//         }
+//     }
+// }
+
+class skvArray extends Array {  // Sorted kv pairs
+    constructor() {super(arguments)}
+    search(k) {
+        var s = 0, m, e = this.length; 
+        while (s < e) {
+            m = s + e >> 1;
+            k > this[m].k ? s = m + 1: e = m; 
+        }
+        return s;
+    }
+    set(k, v) { 
+        var i = this.search(k); 
+        if (k === this[i].k) {
+            this[i].v = v;
+        } else {
+            this.splice(i, 0, {k:k,v:v}); 
+        }
+        return this;
+    }
+    get(k) { 
+        var i = this.search(k); 
+        return k === this[i].k ? this[i].v : undefined; 
+    }
+    delete(k) {
+        var i = this.search(k); 
+        if (k === this[i].k) {
+            this.splice(i, 1); 
+            return true;
+        } else {
+            return false;
+        }
+    }
+}

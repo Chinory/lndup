@@ -57,24 +57,26 @@ Fortunately, remedies rarely fail, as they are all counter-operations of just-su
 - 8x Intel CPU @ 2.60GHz, 16G DDR3 Memory, SSD
 - Linux root are all **ext4**, Windows C: Disk is mounted by **ntfs-3g**
 
+#### use built-in hash map Map()
+
 ```shell
 $ sudo ./lndup.dry /usr /etc /var /boot /home /opt /root /media/linux1/ /media/linux2/ /media/win10/ 2>/dev/null
-#Stat: 1-probe: Readdir:   137830  108.63MiB
-#Stat: 1-probe: Stat:     1257391  72.225GiB
-#Stat: 1-probe: Select:    990213  72.225GiB
-#Profile: Time: 1-probe: 22999.175ms
-#Stat: 2-verify: Hash-Int:  698.52MiB   3.83%  487698  56.69%   1.5KiB   1.00x
-#Stat: 2-verify: Hash-Ext:  17.128GiB  96.17%  372542  43.31%  48.2KiB  32.87x
-#Stat: 2-verify: smalls_size: avg: 3.5KiB
-#Profile: Time: 2-verify: 174694.513ms
-#Profile: Time: 3-solve: 140.884ms
-#Profile: Time: scheme: 197834.835ms
-#Profile: Time: execute: 20.689ms
-#Profile: Memory: rss: 1.057GiB
-#Profile: Memory: heapTotal: 782.71MiB
-#Profile: Memory: heapUsed: 713.38MiB
+#Stat: 1-probe: Readdir:   137753  108.46MiB
+#Stat: 1-probe: Stat:     1254845  72.167GiB
+#Stat: 1-probe: Select:    987723  72.167GiB
+#Profile: Time: 1-probe: 26721.298ms
+#Stat: 2-verify: Hash-Int:  806.89MiB   4.45%  522734  60.93%   1.6KiB   1.00x
+#Stat: 2-verify: Hash-Ext:  16.935GiB  95.55%  335163  39.07%  53.0KiB  33.52x
+#Stat: 2-verify: SMALL_FILE: avg: 3.7KiB
+#Profile: Time: 2-verify: 193733.672ms
+#Profile: Time: 3-solve: 213.278ms
+#Profile: Time: scheme: 220668.508ms
+#Profile: Time: execute: 17.160ms
+#Profile: Memory: rss: 889.44MiB
+#Profile: Memory: heapTotal: 633.13MiB
+#Profile: Memory: heapUsed: 565.48MiB
 #Profile: Memory: external: 8.5KiB
-#Result: TODO:  4.833GiB  5189658946  89432  147127
+#Result: TODO:  4.829GiB  5185105911  89447  147148
 #Result: DONE:        0B           0      0       0
 #Result: FAIL:        0B           0      0       0
 ```
@@ -86,6 +88,32 @@ $ sudo ./lndup.dry /usr /etc /var /boot /home /opt /root /media/linux1/ /media/l
 
 - the small file size criteria `SMALL_FILE` is adaptive, so this is the average 3.7KiB
 - memory killer, even there are 8 work processes not mentioned here, each one of them used about 40M, so the real total memory usage is about **1209.44MiB**
+
+#### use sorted map SMap() (New)
+
+```shell
+$ sudo ./lndup.dry /usr /etc /var /boot /home /opt /root /media/linux1/ /media/linux2/ /media/win10/ 2>/dev/null
+#Stat: 1-probe: Readdir:   137835  108.71MiB
+#Stat: 1-probe: Stat:     1258656  72.255GiB
+#Stat: 1-probe: Select:    991483  72.255GiB
+#Profile: Time: 1-probe: 22854.681ms
+#Stat: 2-verify: Hash-Int:  700.18MiB   3.85%  488142  56.66%   1.5KiB   1.00x
+#Stat: 2-verify: Hash-Ext:  17.080GiB  96.15%  373324  43.34%  48.0KiB  32.66x
+#Stat: 2-verify: smalls_size: avg: 3.5KiB
+#Profile: Time: 2-verify: 187013.600ms
+#Profile: Time: 3-solve: 153.372ms
+#Profile: Time: scheme: 210021.918ms
+#Profile: Time: execute: 20.372ms
+#Profile: Memory: rss: 1.005GiB
+#Profile: Memory: heapTotal: 789.74MiB
+#Profile: Memory: heapUsed: 725.94MiB
+#Profile: Memory: external: 8.5KiB
+#Result: TODO:  4.833GiB  5189661793  89433  147134
+#Result: DONE:        0B           0      0       0
+#Result: FAIL:        0B           0      0       0
+```
+
+- much more memory usage, bit faster
 
 ### Windows 10: C:\Windows
 

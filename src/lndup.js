@@ -179,7 +179,7 @@ if (process.argv[2] === '--hasher') {
     function probe(paths) {
         return new Promise(resolve => { var n = 0;
             console.time('#Profile: Time: scheme'); console.time('#Profile: Time: 1-probe');
-            var map_dev = new SMap();
+            var table = new SMap();
             var select_n=0, select_size=0, stat_n=0, stat_size=0, readdir_n=0, readdir_size=0;
             function done() {
                 tprintf(['#Stat: 1-probe: Readdir:', readdir_n, szstr(readdir_size)],
@@ -247,7 +247,7 @@ if (process.argv[2] === '--hasher') {
             }
             for (let i0 = map_dev.size; i0>0;) { const map_size = map_dev.v[--i0];
             for (let i1 = map_size.size; i1>0;) { const size = map_size.k[--i1], map_hash = map_size.v[i1];
-                const map_ino = map_hash.get(''); // TODO: change path to node: working here
+                const map_ino = map_hash.get(''); 
                 if (map_ino) {
                 if (map_ino.size > 1) {
                     for (let i2 = map_ino.size; i2>0;) { const ino = map_ino.k[--i2], paths = map_ino.v[i2];
