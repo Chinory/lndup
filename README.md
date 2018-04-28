@@ -57,7 +57,7 @@ Fortunately, remedies rarely fail, as they are all counter-operations of just-su
 - 8x Intel CPU @ 2.60GHz, 16G DDR3 Memory, SSD
 - Linux root are all **ext4**, Windows C: Disk is mounted by **ntfs-3g**
 
-#### use built-in hash map Map()
+#### use built-in hash map Map() (v0.2)
 
 ```shell
 $ sudo ./lndup.dry /usr /etc /var /boot /home /opt /root /media/linux1/ /media/linux2/ /media/win10/ 2>/dev/null
@@ -89,7 +89,7 @@ $ sudo ./lndup.dry /usr /etc /var /boot /home /opt /root /media/linux1/ /media/l
 - the small file size criteria `SMALL_FILE` is adaptive, so this is the average 3.7KiB
 - memory killer, even there are 8 work processes not mentioned here, each one of them used about 40M, so the real total memory usage is about **1209.44MiB**
 
-#### use sorted map SMap() (New)
+#### use sorted map SMap() (Now v0.3)
 
 ```shell
 $ sudo ./lndup.dry /usr /etc /var /boot /home /opt /root /media/linux1/ /media/linux2/ /media/win10/ 2>/dev/null
@@ -120,6 +120,8 @@ $ sudo ./lndup.dry /usr /etc /var /boot /home /opt /root /media/linux1/ /media/l
 
 - 8x Intel CPU @ 2.60GHz, 16G DDR3 Memory, SSD
 
+#### use built-in hash map Map() (v0.2)
+
 ```shell
 lndup>node lndup.dry "C:\Windows" 2>nul
 #Stat: 1-probe: Readdir:   27070   18.13MiB
@@ -149,6 +151,8 @@ lndup>node lndup.dry "C:\Windows" 2>nul
 - 8x Intel CPU @ 2.60GHz, 16G DDR3 Memory, **HDD**
 - The size of files varies in a large range, including some **same-size big file**
 
+#### use built-in hash map Map() (v0.2)
+
 ```shell
 lndup>node lndup.dry D: E: F: 2>nul
 #Stat: 1-probe: Readdir:    5105     9.67MiB
@@ -175,7 +179,7 @@ lndup>node lndup.dry D: E: F: 2>nul
 
 ## Introduction
 
-So it just made of nested Maps:
+So it just made of nested SMaps: (sorted map)
 
 ```
 map_size = map_dev[stat.dev]

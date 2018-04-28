@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-/*lndup v0.2 GPL-3.0 <https://github.com/chinory/lndup>*/
+/*lndup v0.3 GPL-3.0 <https://github.com/chinory/lndup>*/
 
 const fs=require('fs'), crypto=require('crypto');
 
@@ -318,18 +318,18 @@ if (process.argv[2] === '--hasher') {
         for (const [size, src, dsts] of solutions) {
             let succ_src_a=0, fail_src_a=0;
             for (const dst of dsts) {
-                // try {
-                //     link(src, dst);
-                //     // console.log("ln -f -- '%s' '%s'", src, dst);
-                //     succ_size += size;
-                //     succ_src_a = 1;
-                //     succ_dst_n += 1;
-                // } catch (err) {
-                //     console.error("ln -f -- '%s' '%s' #%s", src, dst, err);
-                //     fail_size += size;
-                //     fail_src_a = 1;
-                //     fail_dst_n += 1;
-                // }
+                try {
+                    link(src, dst);
+                    // console.log("ln -f -- '%s' '%s'", src, dst);
+                    succ_size += size;
+                    succ_src_a = 1;
+                    succ_dst_n += 1;
+                } catch (err) {
+                    console.error("ln -f -- '%s' '%s' #%s", src, dst, err);
+                    fail_size += size;
+                    fail_src_a = 1;
+                    fail_dst_n += 1;
+                }
                 todo_size += size;
                 todo_dst_n += 1;
             }
