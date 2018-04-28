@@ -132,22 +132,6 @@ if (process.argv[2] === '--hasher') {
             return v;
         }
     }
-    function pathname_cache() {
-        var cache = new WeakMap(); 
-        function get(node) {
-            var str = cache.get(node);
-            if (!str) {
-                if (node.parent) {
-                    str = path.join(get(node.parent), node.name);
-                } else {
-                    str = node.name;
-        }
-                cache.set(node, str);
-    }
-            return str;
-        }
-        return get;
-    }
     function rua(err) {
         console.error('#%s', err);
     }
@@ -195,38 +179,35 @@ if (process.argv[2] === '--hasher') {
     function probe(paths) {
         return new Promise(resolve => { var n = 0;
             console.time('#Profile: Time: scheme'); console.time('#Profile: Time: 1-probe');
-            var readdir_n=0, readdir_size=0, stat_n=0, stat_size=0, select_n=0, select_size=0;
+            var map_dev = new SMap();
+            var select_n=0, select_size=0, stat_n=0, stat_size=0, readdir_n=0, readdir_size=0;
             function done() {
                 tprintf(['#Stat: 1-probe: Readdir:', readdir_n, szstr(readdir_size)],
-                        ['#Stat: 1-probe: Stat:   ', stat_n,    szstr(stat_size)],
-                        ['#Stat: 1-probe: Select: ', select_n,  szstr(select_size)]);
-                return resolve(map_dev, pathname);
+                        ['#Stat: 1-probe: Stat:   ', stat_n, szstr(stat_size)],
+                        ['#Stat: 1-probe: Select: ', select_n, szstr(select_size)]);
+                return resolve(map_dev);
             }
-            function readdir(node) { ++n; 
-                ++readdir_n;
-                return fs.readdir(pathname(node), (err, files)=>{ --n; 
-                    if (err) rua(err); else {
+            function readdir(dir) { ++n; ++readdir_n;
+                return fs.readdir(dir, (err, files)=>{ --n; 
+                    if (err) {rua(err)} else {
                         for (let name of files) {
-                            node.childs.push({name: name, parent:node, childs:[]});
+                            name = path.join(dir, name);
                             readdir_size += name.length;
-                        }
-                        for (let child of node.childs) {
-                            stat(child);
+                            stat(name);
                         }
                     }
                     if (n === 0) return done();
                 });
             }
-            function stat(node) { ++n;
-                ++stat_n;
-                return fs.lstat(pathname(node), (err, stat)=>{ --n; 
-                    if (err) rua(err); else {
+            function stat(path) { ++n;  ++stat_n;
+                return fs.lstat(path, (err, stat)=>{ --n; 
+                    if (err) {rua(err)} else {
                         if (stat.isDirectory()) {
-                            return readdir(node);
+                            return readdir(path);
                         } else if (stat.isFile()) {
                             stat_size += stat.size;
                             if (stat.size > 0) {
-                                map_dev.get_smap(stat.dev).get_smap(stat.size).get_smap('').get_array(stat.ino).push(node);
+                                map_dev.get_smap(stat.dev).get_smap(stat.size).get_smap('').get_array(stat.ino).push(path);
                                 ++select_n; select_size+=stat.size;
                             }
                         }
@@ -234,14 +215,8 @@ if (process.argv[2] === '--hasher') {
                     if (n === 0) return done();
                 });
             }
-            var map_dev = new SMap();
-            var pathname = pathname_cache();
-            var roots = [];
             for (const path of paths) {
-                roots.push({name: path, parent:null, childs:[]});
-            }
-            for (const root of roots) {
-                stat(root);
+                stat(path);
             }
         });
     }
