@@ -17,31 +17,67 @@
 
 /*lndup smap.js GPL-3.0 <https://github.com/chinory/lndup>*/
 
+
 class SMap {
     constructor () { this.k = []; this.v = []; }
+    get size() { return this.k.length; }
     i(k) {
-        var s = 0, e = this.k.length, m; 
-        while (s < e) m = (s + e) >> 1, k > this.k[m] ? s = m + 1: e = m; 
+        var s = 0, m, e = this.k.length; 
+        while (s < e) {
+            m = s + e >> 1;
+            k > this.k[m] ? s = m + 1: e = m; 
+        }
         return s;
     }
-    add(i, k, v) {  // Dangerous
+    add(i, k, v) {
         this.k.splice(i, 0, k); 
         this.v.splice(i, 0, v); 
-        return i;
     }
     del(i) {
         this.k.splice(i, 1); 
-        return this.v.splice(i, 1);
+        this.v.splice(i, 1);
+    }
+    delete(k) {
+        var i = this.i(k); 
+        if (k === this.k[i]) {
+            this.del(i);
+            return true;
+        } else {
+            return false;
+        }
+    }
+    set(k, v) { 
+        var i = this.i(k); 
+        if (k === this.k[i]) {
+            this.v[i] = v;
+        } else {
+            this.add(i, k, v);
+        }
+        return this;
+    }
+    get(k) { 
+        var i = this.i(k); 
+        return k === this.k[i] ? this.v[i] : undefined; 
     }
     get_smap(k) {
-        var i = this.i(k); 
-        if (k !== this.k[i]) i = this.add(i, k, new SMap());
-        return this.v[i];
+        var v, i = this.i(k); 
+        if (k === this.k[i]) {
+            v = this.v[i];
+        } else {
+            v = new SMap();
+            this.add(i, k, v);
+        }
+        return v;
     }
-    get_array(k) {
-        var i = this.i(k); 
-        if (k !== this.k[i]) i = this.add(i, k, []);
-        return this.v[i];
+    get_array(k) { var i = this.i(k); 
+        var v, i = this.i(k); 
+        if (k === this.k[i]) {
+            v = this.v[i];
+        } else {
+            v = [];
+            this.add(i, k, v);
+        }
+        return v;
     }
 }
 

@@ -59,22 +59,22 @@ Fortunately, remedies rarely fail, as they are all counter-operations of just-su
 
 ```shell
 $ sudo ./lndup.dry /usr /etc /var /boot /home /opt /root /media/linux1/ /media/linux2/ /media/win10/ 2>/dev/null
-#Stat: 1-probe: Readdir:   137753  108.46MiB
-#Stat: 1-probe: Stat:     1254845  72.167GiB
-#Stat: 1-probe: Select:    987723  72.167GiB
-#Profile: Time: 1-probe: 26721.298ms
-#Stat: 2-verify: Hash-Int:  806.89MiB   4.45%  522734  60.93%   1.6KiB   1.00x
-#Stat: 2-verify: Hash-Ext:  16.935GiB  95.55%  335163  39.07%  53.0KiB  33.52x
-#Stat: 2-verify: SMALL_FILE: avg: 3.7KiB
-#Profile: Time: 2-verify: 193733.672ms
-#Profile: Time: 3-solve: 213.278ms
-#Profile: Time: scheme: 220668.508ms
-#Profile: Time: execute: 17.160ms
-#Profile: Memory: rss: 889.44MiB
-#Profile: Memory: heapTotal: 633.13MiB
-#Profile: Memory: heapUsed: 565.48MiB
+#Stat: 1-probe: Readdir:   137830  108.63MiB
+#Stat: 1-probe: Stat:     1257391  72.225GiB
+#Stat: 1-probe: Select:    990213  72.225GiB
+#Profile: Time: 1-probe: 22999.175ms
+#Stat: 2-verify: Hash-Int:  698.52MiB   3.83%  487698  56.69%   1.5KiB   1.00x
+#Stat: 2-verify: Hash-Ext:  17.128GiB  96.17%  372542  43.31%  48.2KiB  32.87x
+#Stat: 2-verify: smalls_size: avg: 3.5KiB
+#Profile: Time: 2-verify: 174694.513ms
+#Profile: Time: 3-solve: 140.884ms
+#Profile: Time: scheme: 197834.835ms
+#Profile: Time: execute: 20.689ms
+#Profile: Memory: rss: 1.057GiB
+#Profile: Memory: heapTotal: 782.71MiB
+#Profile: Memory: heapUsed: 713.38MiB
 #Profile: Memory: external: 8.5KiB
-#Result: TODO:  4.829GiB  5185105911  89447  147148
+#Result: TODO:  4.833GiB  5189658946  89432  147127
 #Result: DONE:        0B           0      0       0
 #Result: FAIL:        0B           0      0       0
 ```
