@@ -113,7 +113,8 @@ $ sudo ./lndup.dry /usr /etc /var /boot /home /opt /root /media/linux1/ /media/l
 #Result: FAIL:        0B           0      0       0
 ```
 
-- much more memory usage, bit faster
+- ~~much more memory usage~~, bit faster
+- ^ only 100M not too much, compare to that all-in-one-Map implement 
 
 ### Windows 10: C:\Windows
 
