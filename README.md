@@ -191,7 +191,7 @@ paths = [path, path, ...]
 
 In first step **probe** we group the files with information from a single `fs.stat` call, benefiting from this grouping, we can hash the fewest files enough to further group the files by content in second step **verify**. 
 
-The third step **solve** scans the complex Maps to make a simple table `solutions` , then the fourth step **execute** actually use it and statistic the result.
+The third step **answer** scans the complex Maps to make a simple table `solutions` , then the fourth step **execute** actually use it and statistic the result.
 
 ### probe
 
@@ -203,7 +203,7 @@ Use a fully asynchronous recursive traversal process to fill I/O.
 
 Multi-processed, while small files are still processed in the master processs
 
-### solve
+### answer
 
 Make solutions which instruct to hardlink files whose inode is majority to others.
 

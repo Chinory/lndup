@@ -280,9 +280,9 @@ if (process.argv[2] === '--hasher') {
             if (n === 0) return done();
         });
     }
-    function solve(map_dev) {
+    function answer(map_dev) {
         console.timeEnd('#Profile: Time: 2-verify');
-        console.time('#Profile: Time: 3-solve');
+        console.time('#Profile: Time: 3-answer');
         const solutions = [];
         for (let i0 = map_dev.size; i0>0;) { const map_size = map_dev.v[--i0];
         for (let i1 = map_size.size; i1>0;) { const size = map_size.k[--i1], map_hash = map_size.v[i1];
@@ -309,7 +309,7 @@ if (process.argv[2] === '--hasher') {
         return solutions;
     }
     function execute(solutions) {
-        console.timeEnd('#Profile: Time: 3-solve');
+        console.timeEnd('#Profile: Time: 3-answer');
         console.timeEnd('#Profile: Time: scheme');
         console.time('#Profile: Time: execute');
         var todo_size=0, todo_src_n=0, todo_dst_n=0,
@@ -349,7 +349,7 @@ if (process.argv[2] === '--hasher') {
                 ["#Result: FAIL:", szstr(fail_size), fail_size, fail_src_n, fail_dst_n]);
     }
     function main(){
-        probe(process.argv.slice(2)).then(verify).then(solve).then(execute);
+        probe(process.argv.slice(2)).then(verify).then(answer).then(execute);
     }
 }
 main();
