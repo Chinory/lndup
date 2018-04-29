@@ -16,7 +16,7 @@ $ ls | ./hasher.js
 732c893b5a6f0d374a26446f35b8fee2f388305e  lndup.js
 ```
 
-- When error, outputs a **all-zero** result to stdout and outputs a stringified Node.js Error Object with a `#` prefix:
+- When error, outputs a **all-zero** result to stdout and outputs a stringified Node.js Error Object at stderr with a `#` prefix:
 
 ```shell
 $ echo /non-exist | ./hasher.js
