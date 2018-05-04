@@ -154,8 +154,8 @@ if (process.argv[2] === '--hasher') {
                             } else if (stat.isFile()) {
                                 stat_size += stat.size;
                                 if (stat.size > 0) {
-                                    by_dev.get_map(stat.dev).get_map(stat.size).get_map('').get_array(stat.ino).push(path);
                                     ++select_n; select_size+=stat.size;
+                                    by_dev.get_map(stat.dev).get_map(stat.size).get_map('').get_array(stat.ino).push(path);
                                 }
                             }
                         }
@@ -171,7 +171,7 @@ if (process.argv[2] === '--hasher') {
             return new Promise(resolve => { var n = 0;
                 console.timeEnd('#Profile: Time: 1-probe'); 
                 console.time('#Profile: Time: 2-verify');
-                var smalls_size = SMALLS_SIZE, smalls_size_sum=0, smalls_size_n=0;
+                var smalls_size = SMALLS_SIZE;
                 var hash_int_n=0, hash_int_size=0, hash_ext_n=0, hash_ext_size=0;
                 var flow_int=0, flow_ext=0, flow_n=0;
                 var buff = Buffer.allocUnsafe(SMALLS_SIZE), fail = Buffer.alloc(20);
@@ -187,7 +187,6 @@ if (process.argv[2] === '--hasher') {
                     const hash_ext_avg = hash_ext_size / hash_ext_n;
                     tprintf(['#Stat: 2-verify: Hash-Int:', szstr(hash_int_size), `${hash_size>0?(hash_int_size*100/hash_size).toFixed(2):'0.00'}%`, hash_int_n, `${hash_n>0?(hash_int_n*100/hash_n).toFixed(2):'0.00'}%`, isNaN(hash_int_avg)?'NaN':szstr(hash_int_avg), '1.00x'],
                             ['#Stat: 2-verify: Hash-Ext:', szstr(hash_ext_size), `${hash_size>0?(hash_ext_size*100/hash_size).toFixed(2):'0.00'}%`, hash_ext_n, `${hash_n>0?(hash_ext_n*100/hash_n).toFixed(2):'0.00'}%`, isNaN(hash_ext_avg)?'NaN':szstr(hash_ext_avg), (hash_ext_avg/hash_int_avg).toFixed(2)+'x']);
-                    console.log('#Stat: 2-verify: smalls_size: avg: ' + szstr(smalls_size_sum/smalls_size_n));
                     kill();
                     return resolve(by_dev);
                 }
@@ -221,7 +220,6 @@ if (process.argv[2] === '--hasher') {
                                             }
                                         }
                                     }
-                                    ++smalls_size_n; smalls_size_sum += smalls_size;
                                     ++flow_n; flow_ext += size;
                                     smalls_size = Math.floor(SMALLS_SIZE * flow_ext / (flow_int + flow_ext));
                                     if (flow_n === 8) {
