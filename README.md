@@ -9,40 +9,82 @@ Tiny Node.js program to hardlink duplicate files optimally.
 ## Usage
 
 ```shell
-$ lndup [PATH] [PATH] [PATH]...
+$ lndup --help
+Usage: lndup [OPTION]... PATH...
+Hardlink duplicate files.
+
+  -n, --dry-run  don't link
+  -v, --verbose  explain what is being done
+  -q, --quiet    don't output extra information
+      --help     display this help and exit
+      --version  output version information and exit
+      --hasher   start as a hash work process
+
+See <https://github.com/chinory/lndup>
 ```
 
 - `PATH` can be not only a directory, but also a file.
 
 
-- It does not follow symbolic links.
+- This program does not follow symbolic links.
 
-
-- All outputs are executable unix-shell code, using comment to carry extra information.
 
 ### Output
 
+- All outputs are executable unix-shell code, using comment to carry extra information.
+
 ```shell
-#Stat: 1-probe: Readdir:   29351  20.96MiB
-#Stat: 1-probe: Stat:     267937  8.851GiB
-#Stat: 1-probe: Select:   197240  8.851GiB
-#Profile: Time: 1-probe: 3616.733ms
-#Stat: 2-verify: Hash-Int:  287.63MiB  14.80%  145224  80.83%   2.0KiB   1.00x
-#Stat: 2-verify: Hash-Ext:   1.617GiB  85.20%   34438  19.17%  49.2KiB  24.28x
-#Profile: Time: 2-verify: 39884.123ms
-#Profile: Time: 3-solve: 90.670ms
-#Profile: Time: scheme: 43591.887ms
-#Profile: Time: execute: 9.931ms
-#Profile: Memory: rss: 243.33MiB
-#Profile: Memory: heapTotal: 165.09MiB
-#Profile: Memory: heapUsed: 120.41MiB
-#Profile: Memory: external: 27.1KiB
-#Result: TODO:  222.46MiB  233269209  20830  29523
+$ lndup -v test/ 
+#Stat: 1-probe: Readdir:   3       242B
+#Stat: 1-probe: Stat:     21  144.02MiB
+#Stat: 1-probe: Select:   17  144.02MiB
+#Profile: Time: 1-probe: 7.562ms
+#Stat: 2-verify: Hash-Int:         0B    0.00%  0    0.00%       NaN  NaNx
+#Stat: 2-verify: Hash-Ext:  144.00MiB  100.00%  9  100.00%  16.00MiB  NaNx
+#Profile: Time: 2-verify: 166.890ms
+#Profile: Time: 3-solve: 0.394ms
+#Profile: Time: scheme: 175.183ms
+ln -f -- 'test/b' 'test/a'
+ln -f -- 'test/b' 'test/c'
+ln -f -- 'test/ran1_1' 'test/ran1_2'
+ln -f -- 'test/root/ran4_1' 'test/root/ran4_2'
+ln -f -- 'test/root/ran4_1' 'test/root/ran4_2' #Error: EACCES: permission denied, rename 'test/root/ran4_2' -> 'test/root/ran4_2.5ad852766ce2d5d3'
+#Profile: Time: execute: 7.152ms
+#Profile: Memory: rss: 32.38MiB
+#Profile: Memory: heapTotal: 10.33MiB
+#Profile: Memory: heapUsed: 5.67MiB
+#Profile: Memory: external: 16.6KiB
+#Result: TODO:  64.00MiB  67108864  3  4
+#Result: DONE:  48.00MiB  50331648  2  3
+#Result: FAIL:  16.00MiB  16777216  1  1
+```
+
+Notice that the `ran4_1` appeared twice, the first one is in **stdout**, the second one is in **stderr**.
+
+- Plenty of information provided by default. You can use `-q, --quiet` to disable it.
+
+```shell
+$ sudo lndup -n /usr
+#Stat: 1-probe: Readdir:   16235  14.81MiB
+#Stat: 1-probe: Stat:     295368  8.163GiB
+#Stat: 1-probe: Select:   252786  8.163GiB
+#Profile: Time: 1-probe: 2345.568ms
+#Stat: 2-verify: Hash-Int:  383.35MiB  23.66%  186581  82.27%   2.1KiB   1.00x
+#Stat: 2-verify: Hash-Ext:   1.208GiB  76.34%   40204  17.73%  31.5KiB  14.98x
+#Profile: Time: 2-verify: 2906.962ms
+#Profile: Time: 3-solve: 88.435ms
+#Profile: Time: scheme: 5341.290ms
+#Profile: Time: execute: 10.915ms
+#Profile: Memory: rss: 288.58MiB
+#Profile: Memory: heapTotal: 200.59MiB
+#Profile: Memory: heapUsed: 135.77MiB
+#Profile: Memory: external: 49.1KiB
+#Result: TODO:  235.19MiB  246617152  19824  33488
 #Result: DONE:         0B          0      0      0
 #Result: FAIL:         0B          0      0      0
 ```
 
-| hashed:                          | data        | %        | files    | %        | average file size | x        |
+|                                  | data        | % (CPU)  | files    | % (I/O)  | average file size | x        |
 | -------------------------------- | ----------- | -------- | -------- | -------- | ----------------- | -------- |
 | `#Stat:` `2-verify:` `Hash-Int:` | `287.63MiB` | `14.80%` | `145224` | `80.83%` | `2.0KiB`          | `1.00x`  |
 | `#Stat:` `2-verify:` `Hash-Ext:` | `1.617GiB`  | `85.20%` | `34438`  | `19.17%` | `49.2KiB`         | `24.28x` |
@@ -72,7 +114,7 @@ See [releases](https://github.com/chinory/lndup/releases)
 
 ## Introduction
 
-made of nested maps
+made of nested maps:
 
 ```
 by_size = by_dev[stat.dev]
@@ -97,7 +139,7 @@ instruct to hardlink files whose inode is majority to others.
 
 ### execute
 
-execute that solution, run or dry-run
+execute that solution
 
 ## License
 

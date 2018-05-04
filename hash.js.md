@@ -1,4 +1,4 @@
-# hasher.js
+# hash.js
 
 Prototype of lndup's multi-processs hasher. It can also be used standalong.
 
@@ -10,8 +10,8 @@ Prototype of lndup's multi-processs hasher. It can also be used standalong.
 - pipe paths to it, one line a path:
 
 ```shell
-$ ls | ./hasher.js
-6333c89d12d68d1284d2e22f4a0e4f7232a37d77  hasher.js
+$ ls | ./hash.js
+6333c89d12d68d1284d2e22f4a0e4f7232a37d77  hash.js
 732c893b5a6f0d374a26446f35b8fee2f388305e  lndup.js
 ```
 

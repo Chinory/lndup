@@ -1,24 +1,17 @@
 #!/usr/bin/env node
-// hasher.js: prototype of lndup's multi-process hasher
-// Copyright (C) 2018  Chinory
-
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-/*lndup hasher.js GPL-3.0 <https://github.com/chinory/lndup>*/
-
+/*lndup hash.js <https://github.com/chinory/lndup>*/
+'use strict';
 const fs=require('fs'), crypto=require('crypto');
-if (process.argv[2] === '--hasher') {
+
+var argv = (function(a){
+    for(var r=new Map(),c,i=0;i<a.length&&a[i].length>1&&a[i].startsWith("-");++i){
+        if(a[i].startsWith("--"))
+        {if(a[i].length > 2)r.set(a[i].slice(2));else{++i;break}}
+        else for(c of a[i].slice(1))r.set(c);
+    }return r.set('', a.slice(i));
+})(process.argv.slice(2));
+
+if (argv.delete('hasher')) {
     (function(){
         const BUFSIZE = 1024**2*16;
         var buff=Buffer.allocUnsafe(BUFSIZE),fail=Buffer.alloc(20);

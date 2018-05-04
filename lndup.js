@@ -15,15 +15,29 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-/*lndup v0.3 GPL-3.0 <https://github.com/chinory/lndup>*/
-
-const fs = require('fs'), crypto = require('crypto');
-
+/*lndup v0.4 GPL-3.0 <https://github.com/chinory/lndup>*/
+'use strict';
 function noop() {}
-
-if (process.argv[2] === '--hasher') {
+const path=require('path');
+const BASENAME=path.basename(process.argv[1]);
+var argv = (function(a){
+    for(var r=new Map(),c,i=0;i<a.length&&a[i].length>1&&a[i].startsWith("-");++i){
+        if(a[i].startsWith("--"))
+        {if(a[i].length > 2)r.set(a[i].slice(2));else{++i;break}}
+        else for(c of a[i].slice(1))r.set(c);
+    }return r.set('', a.slice(i));
+})(process.argv.slice(2));
+if (argv.delete('help')) { 
+    process.stdout.write(`Usage: ${BASENAME} [OPTION]... PATH...\n`);
+    process.stdout.write("Hardlink duplicate files.\n\n  -n, --dry-run  don't link\n  -v, --verbose  explain what is being done\n  -q, --quiet    don't output extra information\n      --help     display this help and exit\n      --version  output version information and exit\n      --hasher   start as a hash work process\n\nSee <https://github.com/chinory/lndup>\n");
+}  
+else if (argv.delete('version')) {
+    process.stdout.write("lndup v0.4\n");
+} 
+else { const fs=require('fs'), crypto=require('crypto');
+if (argv.delete('hasher')) { 
+    const BUFSIZE = 1024**2*16;
     (function main(){
-        const BUFSIZE = 1024**2*16;
         var buff = Buffer.allocUnsafe(BUFSIZE), fail = Buffer.alloc(20);
         require('readline').createInterface({input:process.stdin}).on('line', line=>{
             if (line.length === 0) process.exit();
@@ -48,14 +62,29 @@ if (process.argv[2] === '--hasher') {
             }
         });
     })();
-} else {
-    Map.prototype.get_array = function(k){var v;return this.has(k)?this.get(k):(this.set(k,v=[]),v)};
-    Map.prototype.get_map = function(k){var v;return this.has(k)?this.get(k):(this.set(k,v=new Map()),v)};
-    const path = require('path'), child_process = require('child_process');
+} 
+else { const child_process=require('child_process');
+    const ACTION = !(argv.delete('dry-run') | argv.delete('n'));
+    const VERBOSE = (argv.delete('verbose') | argv.delete('v'))>0;
+    const EXTINFO = !(argv.delete('quiet') | argv.delete('q'));
+    if (argv.size > 1) {
+        for (const name of argv.keys()) {
+            if (name.length > 0) {
+                console.error(`${BASENAME}: invalid option -- ${name}`);
+            }
+        }
+        console.error(`Try '${BASENAME} --help' for more information.`);
+        process.exit(1);
+    }
     const SIZE_UNIT = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
     const HASH_WORKS_N = require('os').cpus().length;
     const SMALLS_SIZE = 1024*8;
+    Map.prototype.get_array = function(k){var v;return this.has(k)?this.get(k):(this.set(k,v=[]),v)};
+    Map.prototype.get_map = function(k){var v;return this.has(k)?this.get(k):(this.set(k,v=new Map()),v)};
     (function main(){
+        function rua(err) {
+            return console.error(`#${err}`);
+        }
         function hasher(callback, n) {
             var procs = [], queue = [], i = n;
             function onerror(chunk) { return process.stderr.write(chunk); }
@@ -78,9 +107,6 @@ if (process.argv[2] === '--hasher') {
             }
             do{spawn()}while(--i>0);
             return [send, kill];
-        }
-        function rua(err) {
-            console.error(`#${err}`);
         }
         function link(src, dst) { 
             const sav = dst + '.' + crypto.randomBytes(8).toString('hex');
@@ -124,14 +150,18 @@ if (process.argv[2] === '--hasher') {
         }
         function probe(paths) {
             return new Promise(resolve => { var n = 0;
-                console.time('#Profile: Time: scheme'); 
-                console.time('#Profile: Time: 1-probe');
+                if (EXTINFO) {
+                    console.time('#Profile: Time: scheme'); 
+                    console.time('#Profile: Time: 1-probe');
+                }
                 var by_dev = new Map();
                 var select_n=0, select_size=0, stat_n=0, stat_size=0, readdir_n=0, readdir_size=0;
                 function done() {
-                    tprintf(['#Stat: 1-probe: Readdir:', readdir_n, szstr(readdir_size)],
-                            ['#Stat: 1-probe: Stat:   ', stat_n, szstr(stat_size)],
-                            ['#Stat: 1-probe: Select: ', select_n, szstr(select_size)]);
+                    if (EXTINFO) {
+                        tprintf(['#Stat: 1-probe: Readdir:', readdir_n, szstr(readdir_size)],
+                                ['#Stat: 1-probe: Stat:   ', stat_n, szstr(stat_size)],
+                                ['#Stat: 1-probe: Select: ', select_n, szstr(select_size)]);
+                    }
                     return resolve(by_dev);
                 }
                 function readdir(dir) { ++n; ++readdir_n;
@@ -169,8 +199,10 @@ if (process.argv[2] === '--hasher') {
         }
         function verify(by_dev) {
             return new Promise(resolve => { var n = 0;
-                console.timeEnd('#Profile: Time: 1-probe'); 
-                console.time('#Profile: Time: 2-verify');
+                if (EXTINFO) {
+                    console.timeEnd('#Profile: Time: 1-probe'); 
+                    console.time('#Profile: Time: 2-verify');
+                }
                 var smalls_size = SMALLS_SIZE;
                 var hash_int_n=0, hash_int_size=0, hash_ext_n=0, hash_ext_size=0;
                 var flow_int=0, flow_ext=0, flow_n=0;
@@ -185,8 +217,11 @@ if (process.argv[2] === '--hasher') {
                     const hash_size = hash_int_size + hash_ext_size;
                     const hash_int_avg = hash_int_size / hash_int_n;
                     const hash_ext_avg = hash_ext_size / hash_ext_n;
-                    tprintf(['#Stat: 2-verify: Hash-Int:', szstr(hash_int_size), `${hash_size>0?(hash_int_size*100/hash_size).toFixed(2):'0.00'}%`, hash_int_n, `${hash_n>0?(hash_int_n*100/hash_n).toFixed(2):'0.00'}%`, isNaN(hash_int_avg)?'NaN':szstr(hash_int_avg), '1.00x'],
-                            ['#Stat: 2-verify: Hash-Ext:', szstr(hash_ext_size), `${hash_size>0?(hash_ext_size*100/hash_size).toFixed(2):'0.00'}%`, hash_ext_n, `${hash_n>0?(hash_ext_n*100/hash_n).toFixed(2):'0.00'}%`, isNaN(hash_ext_avg)?'NaN':szstr(hash_ext_avg), (hash_ext_avg/hash_int_avg).toFixed(2)+'x']);
+                    const hash_ext_to_int = hash_ext_avg/hash_int_avg;
+                    if (EXTINFO) {
+                        tprintf(['#Stat: 2-verify: Hash-Int:', szstr(hash_int_size), `${hash_size>0?(hash_int_size*100/hash_size).toFixed(2):'0.00'}%`, hash_int_n, `${hash_n>0?(hash_int_n*100/hash_n).toFixed(2):'0.00'}%`, isNaN(hash_int_avg)?'NaN':szstr(hash_int_avg), isNaN(hash_ext_to_int)?'NaNx':'1.00x'],
+                                ['#Stat: 2-verify: Hash-Ext:', szstr(hash_ext_size), `${hash_size>0?(hash_ext_size*100/hash_size).toFixed(2):'0.00'}%`, hash_ext_n, `${hash_n>0?(hash_ext_n*100/hash_n).toFixed(2):'0.00'}%`, isNaN(hash_ext_avg)?'NaN':szstr(hash_ext_avg), hash_ext_to_int.toFixed(2)+'x']);
+                    }
                     kill();
                     return resolve(by_dev);
                 }
@@ -235,8 +270,10 @@ if (process.argv[2] === '--hasher') {
             });
         }
         function solve(by_dev) {
-            console.timeEnd('#Profile: Time: 2-verify');
-            console.time('#Profile: Time: 3-solve');
+            if (EXTINFO) {
+                console.timeEnd('#Profile: Time: 2-verify');
+                console.time('#Profile: Time: 3-solve');
+            }
             const solutions = [];
             for (const [dev, by_size] of by_dev) {
                 for (const [size, by_content] of by_size) {
@@ -262,18 +299,22 @@ if (process.argv[2] === '--hasher') {
             return solutions;
         }
         function execute(solutions) {
-            console.timeEnd('#Profile: Time: 3-solve');
-            console.timeEnd('#Profile: Time: scheme');
-            console.time('#Profile: Time: execute');
+            if (EXTINFO) {
+                console.timeEnd('#Profile: Time: 3-solve');
+                console.timeEnd('#Profile: Time: scheme');
+                console.time('#Profile: Time: execute');
+            }
             var todo_size=0, todo_src_n=0, todo_dst_n=0,
                 succ_size=0, succ_src_n=0, succ_dst_n=0,
                 fail_size=0, fail_src_n=0, fail_dst_n=0;
             for (const [size, src, dsts] of solutions) {
                 let succ_src_a=0, fail_src_a=0;
                 for (const dst of dsts) {
-                    try {
+                    if (VERBOSE) {
+                        console.log("ln -f -- '%s' '%s'", src, dst);
+                    }
+                    if (ACTION) try {
                         link(src, dst);
-                        // console.log("ln -f -- '%s' '%s'", src, dst);
                         succ_size += size;
                         succ_src_a = 1;
                         succ_dst_n += 1;
@@ -290,17 +331,19 @@ if (process.argv[2] === '--hasher') {
                 succ_src_n += succ_src_a;
                 fail_src_n += fail_src_a;
             }
-            console.timeEnd('#Profile: Time: execute');
-            { const mem = process.memoryUsage();
+            if (EXTINFO) { 
+                console.timeEnd('#Profile: Time: execute');
+                const mem = process.memoryUsage();
                 console.log(`#Profile: Memory: rss: ${szstr(mem.rss)}`);
                 console.log(`#Profile: Memory: heapTotal: ${szstr(mem.heapTotal)}`);
                 console.log(`#Profile: Memory: heapUsed: ${szstr(mem.heapUsed)}`);
                 console.log(`#Profile: Memory: external: ${szstr(mem.external)}`);
+                tprintf(["#Result: TODO:", szstr(todo_size), todo_size, todo_src_n, todo_dst_n],
+                        ["#Result: DONE:", szstr(succ_size), succ_size, succ_src_n, succ_dst_n],
+                        ["#Result: FAIL:", szstr(fail_size), fail_size, fail_src_n, fail_dst_n]);
             }
-            tprintf(["#Result: TODO:", szstr(todo_size), todo_size, todo_src_n, todo_dst_n],
-                    ["#Result: DONE:", szstr(succ_size), succ_size, succ_src_n, succ_dst_n],
-                    ["#Result: FAIL:", szstr(fail_size), fail_size, fail_src_n, fail_dst_n]);
         }
-        probe(process.argv.slice(2)).then(verify).then(solve).then(execute);
+        probe(argv.get('')).then(verify).then(solve).then(execute);
     })();
+}
 }
