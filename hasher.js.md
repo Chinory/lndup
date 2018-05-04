@@ -2,13 +2,12 @@
 
 Prototype of lndup's multi-processs hasher. It can also be used standalong.
 
-- Use all your CPU, I/O, ~~Memory~~ resources to hash files by **Node.js**
 - Output like `shasum`
 - Only SHA-1 supported now
 
 ## Usage
 
-- Just pipe paths to it, one line a path:
+- pipe paths to it, one line a path:
 
 ```shell
 $ ls | ./hasher.js
@@ -16,19 +15,11 @@ $ ls | ./hasher.js
 732c893b5a6f0d374a26446f35b8fee2f388305e  lndup.js
 ```
 
-- When error, outputs a **all-zero** result to stdout and outputs a stringified Node.js Error Object at stderr with a `#` prefix:
-
-```shell
-$ echo /non-exist | ./hasher.js
-0000000000000000000000000000000000000000  /non-exist
-#Error: ENOENT: no such file or directory, open '/non-exist'
-```
-
-- An empty line means to close input. Started works will continue to completion.
+- An empty line means to close input. Started works will continue to complete.
 
 ## More
 
-The master process use `--hasher` options to spawn worker process. This mean you can do the same. A big difference is that worker process outputs **raw hash data**, such as a 20-bytes SHA-1.
+The master process use `--hasher` options to spawn worker process. A big difference is that worker process outputs **raw hash data**, such as a 20-bytes SHA-1.
 
 ## License
 
