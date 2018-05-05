@@ -17,10 +17,11 @@
 
 /*lndup v0.4 GPL-3.0 <https://github.com/chinory/lndup>*/
 'use strict';
-function noop() {}
+{
+const noop=()=>{};
 const path=require('path');
 const BASENAME=path.basename(process.argv[1]);
-var argv = (function(a){
+const argv = ((a)=>{
     for(var r=new Map(),c,i=0;i<a.length&&a[i].length>1&&a[i].startsWith("-");++i){
         if(a[i].startsWith("--"))
         {if(a[i].length > 2)r.set(a[i].slice(2));else{++i;break}}
@@ -345,5 +346,6 @@ else { const child_process=require('child_process');
         }
         probe(argv.get('')).then(verify).then(solve).then(execute);
     })();
+}
 }
 }
