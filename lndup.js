@@ -214,12 +214,12 @@ else { const child_process=require('child_process');
                     if (n === 0) return done();
                 }
                 function done() {
-                    const hash_n = hash_int_n + hash_ext_n;
-                    const hash_size = hash_int_size + hash_ext_size;
-                    const hash_int_avg = hash_int_size / hash_int_n;
-                    const hash_ext_avg = hash_ext_size / hash_ext_n;
-                    const hash_ext_to_int = hash_ext_avg/hash_int_avg;
                     if (EXTINFO) {
+                        const hash_n = hash_int_n + hash_ext_n;
+                        const hash_size = hash_int_size + hash_ext_size;
+                        const hash_int_avg = hash_int_size / hash_int_n;
+                        const hash_ext_avg = hash_ext_size / hash_ext_n;
+                        const hash_ext_to_int = hash_ext_avg/hash_int_avg;
                         tprintf(['#Stat: 2-verify: Hash-Int:', szstr(hash_int_size), `${hash_size>0?(hash_int_size*100/hash_size).toFixed(2):'0.00'}%`, hash_int_n, `${hash_n>0?(hash_int_n*100/hash_n).toFixed(2):'0.00'}%`, isNaN(hash_int_avg)?'NaN':szstr(hash_int_avg), isNaN(hash_ext_to_int)?'NaNx':'1.00x'],
                                 ['#Stat: 2-verify: Hash-Ext:', szstr(hash_ext_size), `${hash_size>0?(hash_ext_size*100/hash_size).toFixed(2):'0.00'}%`, hash_ext_n, `${hash_n>0?(hash_ext_n*100/hash_n).toFixed(2):'0.00'}%`, isNaN(hash_ext_avg)?'NaN':szstr(hash_ext_avg), hash_ext_to_int.toFixed(2)+'x']);
                     }
