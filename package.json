@@ -1,6 +1,6 @@
 {
   "name": "lndup",
-  "version": "0.4.2",
+  "version": "0.5",
   "description": "Tiny Node.js program to hardlink duplicate files optimally",
   "main": "lndup.js",
   "directories": {
@@ -22,5 +22,13 @@
   "bugs": {
     "url": "https://github.com/chinory/lndup/issues"
   },
-  "homepage": "https://github.com/chinory/lndup#readme"
+  "homepage": "https://github.com/chinory/lndup#readme",
+  "devDependencies": {
+    "eslint": "^5.1.0",
+    "eslint-config-standard": "^11.0.0",
+    "eslint-plugin-import": "^2.13.0",
+    "eslint-plugin-node": "^6.0.1",
+    "eslint-plugin-promise": "^3.8.0",
+    "eslint-plugin-standard": "^3.1.0"
+  }
 }
