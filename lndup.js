@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-/* lndup v0.5.2 GPL-3.0 <https://github.com/chinory/lndup> */
+/* lndup v0.5.3 GPL-3.0 <https://github.com/chinory/lndup> */
 'use strict'
 {
   const noop = function () {}
@@ -45,12 +45,12 @@
     return argm.set('', argv.slice(i))
   })(process.argv.slice(2))
 
-  if (argm.delete('help')) {
+  if (argm.delete('help') | argm.delete('h')) {
     console.log(`Usage: ${BASENAME} [OPTION]... PATH...`)
-    console.log("Hardlink duplicate files.\n\n  -n, --dry-run  don't link\n  -v, --verbose  explain what is being done\n  -q, --quiet    don't output extra information\n  -i, --stdin    use stdin for extra paths\n      --help     display this help and exit\n      --version  output version information and exit\n      --hasher   start as a hash work process\n\nSee <https://github.com/chinory/lndup>")
+    console.log("Hardlink duplicate files.\n\n  -n, --dry-run  don't link\n  -v, --verbose  explain what is being done\n  -q, --quiet    don't output extra information\n  -i, --stdin    read more paths from stdin\n  -h, --help     display this help and exit\n      --version  output version information and exit\n      --hasher   start as a hash work process\n\nSee <https://github.com/chinory/lndup>")
   } else
   if (argm.delete('version')) {
-    console.log('lndup v0.5.2')
+    console.log('lndup v0.5.3')
   } else {
     const fs = require('fs')
     const crypto = require('crypto')
@@ -107,7 +107,7 @@
       }
 
       // consts
-      const HASHER_N = require('os').cpus().length // use how many hash work child process
+      const HASHER_N = require('os').cpus().length // use how many hasher child process
       const SMALLS_SIZE = 1024 * 8 // the max value of small file criteria size
 
       // format size(bytes) to human readable text
@@ -235,9 +235,11 @@
             var readdir_n = 0; var readdir_size = 0
             function done () {
               if (EXTINFO) {
-                tprintf(['#Stat: probe: readdir', szstr(readdir_size), readdir_n],
+                tprintf(
+                  ['#Stat: probe: readdir', szstr(readdir_size), readdir_n],
                   ['#Stat: probe: stat   ', szstr(stat_size), stat_n],
-                  ['#Stat: probe: select ', szstr(select_size), select_n])
+                  ['#Stat: probe: select ', szstr(select_size), select_n]
+                )
                 console.timeEnd('#Time: probe')
               }
               return resolve(by_dev)
@@ -314,35 +316,15 @@
             }
             function done () {
               if (EXTINFO) {
-                // const hash_n = hash_int_n + hash_ext_n
-                // const hash_size = hash_int_size + hash_ext_size
-                // const hash_int_avg = hash_int_size / hash_int_n
-                // const hash_ext_avg = hash_ext_size / hash_ext_n
-                // const hash_ext_to_int = hash_ext_avg / hash_int_avg
                 tprintf(
-                  ['#Stat: verify: internal',
-                    szstr(hash_int_size),
-                    // `${hash_size > 0 ? (hash_int_size * 100 / hash_size).toFixed(2) : '0.00'}%`,
-                    hash_int_n
-                    // `${hash_n > 0 ? (hash_int_n * 100 / hash_n).toFixed(2) : '0.00'}%`,
-                    // isNaN(hash_int_avg) ? 'NaN' : szstr(hash_int_avg),
-                    // isNaN(hash_ext_to_int) ? 'NaNx' : '1.00x',
-                  ],
-                  ['#Stat: verify: external',
-                    szstr(hash_ext_size),
-                    // `${hash_size > 0 ? (hash_ext_size * 100 / hash_size).toFixed(2) : '0.00'}%`,
-                    hash_ext_n
-                    // `${hash_n > 0 ? (hash_ext_n * 100 / hash_n).toFixed(2) : '0.00'}%`,
-                    // isNaN(hash_ext_avg) ? 'NaN' : szstr(hash_ext_avg),
-                    // hash_ext_to_int.toFixed(2) + 'x',
-                  ]
+                  ['#Stat: verify: internal', szstr(hash_int_size), hash_int_n],
+                  ['#Stat: verify: external', szstr(hash_ext_size), hash_ext_n]
                 )
                 console.timeEnd('#Time: verify')
               }
               kill()
               return resolve(by_dev)
             }
-            // for (const [dev, by_size] of by_dev) {
             for (const by_size of by_dev.values()) {
               for (const [size, by_content] of by_size) {
                 const by_ino = by_content.get('')
@@ -386,10 +368,8 @@
             console.time('#Time: solve')
           }
           const solutions = []
-          // for (const [dev, by_size] of by_dev) {
           for (const by_size of by_dev.values()) {
             for (const [size, by_content] of by_size) {
-              // for (const [digest, by_ino] of by_content) {
               for (const by_ino of by_content.values()) {
                 if (by_ino.size > 1) {
                   let major_n = 0
@@ -450,14 +430,11 @@
           }
           if (EXTINFO) {
             console.timeEnd('#Time: execute')
-            // const mem = process.memoryUsage()
-            // console.log(`#Prof: Memory: rss: ${szstr(mem.rss)}`)
-            // console.log(`#Prof: Memory: heapTotal: ${szstr(mem.heapTotal)}`)
-            // console.log(`#Prof: Memory: heapUsed: ${szstr(mem.heapUsed)}`)
-            // console.log(`#Prof: Memory: external: ${szstr(mem.external)}`)
-            tprintf(['#Result: TODO:', szstr(todo_size), /* todo_size, */todo_src_n, todo_dst_n],
-              ['#Result: DONE:', szstr(succ_size), /* succ_size, */succ_src_n, succ_dst_n],
-              ['#Result: FAIL:', szstr(fail_size), /* fail_size, */fail_src_n, fail_dst_n])
+            tprintf(
+              ['#Result: TODO:', szstr(todo_size), todo_src_n, todo_dst_n],
+              ['#Result: DONE:', szstr(succ_size), succ_src_n, succ_dst_n],
+              ['#Result: FAIL:', szstr(fail_size), fail_src_n, fail_dst_n]
+            )
           }
         }
         probe(argm.get(''), USE_STDIN ? readline.createInterface({input: process.stdin}) : undefined)
