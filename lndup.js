@@ -77,7 +77,7 @@
             var digest = hash.update(buff.slice(0, len)).digest()
           } catch (err) {
             process.stdout.write(fail)
-            process.stderr.write(`#${err.toString()}\n`)
+            process.stderr.write(`#${err}\n`)
           }
           if (fd) {
             fs.close(fd, noop)
@@ -187,14 +187,14 @@
           try {
             fs.renameSync(sav, dst)
           } catch (err) {
-            console.error(`mv -f -- '${sav}' '${dst}' #${err.toString()}`)
+            console.error(`mv -f -- '${sav}' '${dst}' #${err}`)
           }
           throw err
         }
         try {
           fs.unlinkSync(sav)
         } catch (err) {
-          console.error(`rm -f -- '${sav}' #${err.toString()}`)
+          console.error(`rm -f -- '${sav}' #${err}`)
         }
       }
 
@@ -435,7 +435,7 @@
                   succ_src_a = 1
                   succ_dst_n += 1
                 } catch (err) {
-                  console.error(`ln -f -- '${src}' '${dst}' #${err.toString()}`)
+                  console.error(`ln -f -- '${src}' '${dst}' #${err}`)
                   fail_size += size
                   fail_src_a = 1
                   fail_dst_n += 1
