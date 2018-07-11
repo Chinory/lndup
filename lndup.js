@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-/* lndup v0.5 GPL-3.0 <https://github.com/chinory/lndup> */
+/* lndup v0.5.1 GPL-3.0 <https://github.com/chinory/lndup> */
 'use strict'
 {
   const noop = function () {}
@@ -50,7 +50,7 @@
     console.log("Hardlink duplicate files.\n\n  -n, --dry-run  don't link\n  -v, --verbose  explain what is being done\n  -q, --quiet    don't output extra information\n  -i, --stdin    use stdin for extra paths\n      --help     display this help and exit\n      --version  output version information and exit\n      --hasher   start as a hash work process\n\nSee <https://github.com/chinory/lndup>")
   } else
   if (argm.delete('version')) {
-    console.log('lndup v0.5')
+    console.log('lndup v0.5.1')
   } else {
     const fs = require('fs')
     const crypto = require('crypto')
@@ -225,19 +225,20 @@
         function probe (pathsArray, pathsReadline) {
           return new Promise(resolve => {
             if (EXTINFO) {
-              // console.time('#time: scheme')
-              console.time('#time: probe')
+              // console.time('#Time: scheme')
+              console.time('#Time: probe')
             }
             var n = 0
             var by_dev = new DefaultMap()
+            var path_used = new Set()
             var select_n = 0; var select_size = 0
             var stat_n = 0; var stat_size = 0
             var readdir_n = 0; var readdir_size = 0
             function done () {
               if (EXTINFO) {
-                tprintf(['#stat: probe: readdir', szstr(readdir_size), readdir_n],
-                  ['#stat: probe: stat   ', szstr(stat_size), stat_n],
-                  ['#stat: probe: select ', szstr(select_size), select_n])
+                tprintf(['#Stat: probe: readdir', szstr(readdir_size), readdir_n],
+                  ['#Stat: probe: stat   ', szstr(stat_size), stat_n],
+                  ['#Stat: probe: select ', szstr(select_size), select_n])
               }
               return resolve(by_dev)
             }
@@ -246,27 +247,28 @@
               return fs.readdir(dir, (err, files) => {
                 --n
                 if (err) report(err); else {
-                  for (let name of files) {
-                    name = path.join(dir, name)
-                    readdir_size += name.length
-                    stat(name)
+                  for (const name of files) {
+                    const _path = path.join(dir, name)
+                    readdir_size += _path.length
+                    stat(_path)
                   }
                 }
                 if (n === 0) return done()
               })
             }
-            function stat (path) {
+            function stat (_path) {
+              if (path_used.has(_path)) return; path_used.add(_path)
               ++n; ++stat_n
-              return fs.lstat(path, (err, stat) => {
+              return fs.lstat(_path, (err, stat) => {
                 --n
                 if (err) report(err); else {
                   if (stat.isDirectory()) {
-                    return readdir(path)
+                    return readdir(_path)
                   } else if (stat.isFile()) {
                     stat_size += stat.size
                     if (stat.size > 0) {
                       ++select_n; select_size += stat.size
-                      by_dev.get_map(stat.dev).get_map(stat.size).get_map('').get_array(stat.ino).push(path)
+                      by_dev.get_map(stat.dev).get_map(stat.size).get_map('').get_array(stat.ino).push(_path)
                     }
                   }
                 }
@@ -274,21 +276,22 @@
               })
             }
             if (pathsArray) {
-              for (const path of pathsArray) {
-                stat(path)
+              for (const _path of pathsArray) {
+                stat(path.join(_path))
               }
             }
             if (pathsReadline) {
               ++n
-              pathsReadline.on('line', stat).on('close', () => { if (--n === 0) return done() })
+              pathsReadline.on('line', (_path) => stat(path.join(_path)))
+                .on('close', () => { if (--n === 0) return done() })
             }
           })
         }
         function verify (by_dev) {
           return new Promise(resolve => {
             if (EXTINFO) {
-              console.timeEnd('#time: probe')
-              console.time('#time: verify')
+              console.timeEnd('#Time: probe')
+              console.time('#Time: verify')
             }
             var n = 0
             var smalls_size = SMALLS_SIZE
@@ -313,7 +316,7 @@
                 // const hash_ext_avg = hash_ext_size / hash_ext_n
                 // const hash_ext_to_int = hash_ext_avg / hash_int_avg
                 tprintf(
-                  ['#stat: verify: internal',
+                  ['#Stat: verify: internal',
                     szstr(hash_int_size),
                     // `${hash_size > 0 ? (hash_int_size * 100 / hash_size).toFixed(2) : '0.00'}%`,
                     hash_int_n
@@ -321,7 +324,7 @@
                     // isNaN(hash_int_avg) ? 'NaN' : szstr(hash_int_avg),
                     // isNaN(hash_ext_to_int) ? 'NaNx' : '1.00x',
                   ],
-                  ['#stat: verify: external',
+                  ['#Stat: verify: external',
                     szstr(hash_ext_size),
                     // `${hash_size > 0 ? (hash_ext_size * 100 / hash_size).toFixed(2) : '0.00'}%`,
                     hash_ext_n
@@ -375,8 +378,8 @@
         }
         function solve (by_dev) {
           if (EXTINFO) {
-            console.timeEnd('#time: verify')
-            console.time('#time: solve')
+            console.timeEnd('#Time: verify')
+            console.time('#Time: solve')
           }
           const solutions = []
           // for (const [dev, by_size] of by_dev) {
@@ -408,9 +411,9 @@
         }
         function execute (solutions) {
           if (EXTINFO) {
-            console.timeEnd('#time: solve')
-            // console.timeEnd('#time: scheme')
-            console.time('#time: execute')
+            console.timeEnd('#Time: solve')
+            // console.timeEnd('#Time: scheme')
+            console.time('#Time: execute')
           }
           var todo_size = 0; var todo_src_n = 0; var todo_dst_n = 0
           var succ_size = 0; var succ_src_n = 0; var succ_dst_n = 0
@@ -443,15 +446,15 @@
             fail_src_n += fail_src_a
           }
           if (EXTINFO) {
-            console.timeEnd('#time: execute')
+            console.timeEnd('#Time: execute')
             // const mem = process.memoryUsage()
             // console.log(`#Prof: Memory: rss: ${szstr(mem.rss)}`)
             // console.log(`#Prof: Memory: heapTotal: ${szstr(mem.heapTotal)}`)
             // console.log(`#Prof: Memory: heapUsed: ${szstr(mem.heapUsed)}`)
             // console.log(`#Prof: Memory: external: ${szstr(mem.external)}`)
-            tprintf(['#result: todo:', szstr(todo_size), /* todo_size, */todo_src_n, todo_dst_n],
-              ['#result: done:', szstr(succ_size), /* succ_size, */succ_src_n, succ_dst_n],
-              ['#result: fail:', szstr(fail_size), /* fail_size, */fail_src_n, fail_dst_n])
+            tprintf(['#Result: TODO:', szstr(todo_size), /* todo_size, */todo_src_n, todo_dst_n],
+              ['#Result: DONE:', szstr(succ_size), /* succ_size, */succ_src_n, succ_dst_n],
+              ['#Result: FAIL:', szstr(fail_size), /* fail_size, */fail_src_n, fail_dst_n])
           }
         }
         probe(argm.get(''), USE_STDIN ? readline.createInterface({input: process.stdin}) : undefined)
