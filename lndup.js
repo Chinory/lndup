@@ -225,7 +225,6 @@
         function probe (pathsArray, pathsReadline) {
           return new Promise(resolve => {
             if (EXTINFO) {
-              // console.time('#Time: scheme')
               console.time('#Time: probe')
             }
             var n = 0
@@ -239,6 +238,7 @@
                 tprintf(['#Stat: probe: readdir', szstr(readdir_size), readdir_n],
                   ['#Stat: probe: stat   ', szstr(stat_size), stat_n],
                   ['#Stat: probe: select ', szstr(select_size), select_n])
+                console.timeEnd('#Time: probe')
               }
               return resolve(by_dev)
             }
@@ -295,7 +295,6 @@
         function verify (by_dev) {
           return new Promise(resolve => {
             if (EXTINFO) {
-              console.timeEnd('#Time: probe')
               console.time('#Time: verify')
             }
             var n = 0
@@ -338,6 +337,7 @@
                     // hash_ext_to_int.toFixed(2) + 'x',
                   ]
                 )
+                console.timeEnd('#Time: verify')
               }
               kill()
               return resolve(by_dev)
@@ -383,7 +383,6 @@
         }
         function solve (by_dev) {
           if (EXTINFO) {
-            console.timeEnd('#Time: verify')
             console.time('#Time: solve')
           }
           const solutions = []
@@ -412,12 +411,11 @@
               }
             }
           }
+          console.timeEnd('#Time: solve')
           return solutions
         }
         function execute (solutions) {
           if (EXTINFO) {
-            console.timeEnd('#Time: solve')
-            // console.timeEnd('#Time: scheme')
             console.time('#Time: execute')
           }
           var todo_size = 0; var todo_src_n = 0; var todo_dst_n = 0
