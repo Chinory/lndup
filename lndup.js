@@ -144,28 +144,6 @@
         if (err) return report(err)
       }
 
-      // get_*() methods with default value
-      class DefaultMap extends Map {
-        get_array (key) {
-          if (this.has(key)) {
-            return this.get(key)
-          } else {
-            let value = []
-            this.set(key, value)
-            return value
-          }
-        }
-        get_map (key) {
-          if (this.has(key)) {
-            return this.get(key)
-          } else {
-            let value = new DefaultMap()
-            this.set(key, value)
-            return value
-          }
-        }
-      }
-
       // use program self as hasher
       const hasher = function (callback, n) {
         var procs = []
@@ -178,8 +156,8 @@
           const q = []
           const p = child_process.spawn(process.argv0, [process.argv[1], '--hasher'], {windowsHide: true})
           p.stdout.on('readable', () => {
-            for (var buf; (buf = p.stdout.read(HASH_LENGTH)) !== null;) {
-              callback(buf, q.shift())
+            for (var buff; (buff = p.stdout.read(HASH_LENGTH)) !== null;) {
+              callback(buff, q.shift())
             }
           })
           p.stderr.on('data', onerror)
@@ -217,6 +195,28 @@
           fs.unlinkSync(sav)
         } catch (err) {
           console.error(`rm -f -- '${sav}' #${err.toString()}`)
+        }
+      }
+
+      // get_*() methods with default value
+      class DefaultMap extends Map {
+        get_array (key) {
+          if (this.has(key)) {
+            return this.get(key)
+          } else {
+            let value = []
+            this.set(key, value)
+            return value
+          }
+        }
+        get_map (key) {
+          if (this.has(key)) {
+            return this.get(key)
+          } else {
+            let value = new DefaultMap()
+            this.set(key, value)
+            return value
+          }
         }
       }
 
@@ -387,7 +387,7 @@
                 if (by_ino.size > 1) {
                   let major_n = 0
                   let major_i = 0
-                  let dsts = []
+                  const dsts = []
                   for (const [ino, paths] of by_ino) {
                     if (paths.length > major_n) {
                       major_n = paths.length
