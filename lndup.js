@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-/* lndup v0.5.1 GPL-3.0 <https://github.com/chinory/lndup> */
+/* lndup v0.5.2 GPL-3.0 <https://github.com/chinory/lndup> */
 'use strict'
 {
   const noop = function () {}
@@ -50,7 +50,7 @@
     console.log("Hardlink duplicate files.\n\n  -n, --dry-run  don't link\n  -v, --verbose  explain what is being done\n  -q, --quiet    don't output extra information\n  -i, --stdin    use stdin for extra paths\n      --help     display this help and exit\n      --version  output version information and exit\n      --hasher   start as a hash work process\n\nSee <https://github.com/chinory/lndup>")
   } else
   if (argm.delete('version')) {
-    console.log('lndup v0.5.1')
+    console.log('lndup v0.5.2')
   } else {
     const fs = require('fs')
     const crypto = require('crypto')
@@ -230,7 +230,7 @@
             }
             var n = 0
             var by_dev = new DefaultMap()
-            var path_used = new Set()
+            var path_stated = new Map()
             var select_n = 0; var select_size = 0
             var stat_n = 0; var stat_size = 0
             var readdir_n = 0; var readdir_size = 0
@@ -257,23 +257,28 @@
               })
             }
             function stat (_path) {
-              if (path_used.has(_path)) return; path_used.add(_path)
-              ++n; ++stat_n
-              return fs.lstat(_path, (err, stat) => {
-                --n
-                if (err) report(err); else {
-                  if (stat.isDirectory()) {
-                    return readdir(_path)
-                  } else if (stat.isFile()) {
-                    stat_size += stat.size
-                    if (stat.size > 0) {
-                      ++select_n; select_size += stat.size
-                      by_dev.get_map(stat.dev).get_map(stat.size).get_map('').get_array(stat.ino).push(_path)
+              if (!path_stated.has(_path)) {
+                path_stated.set(_path, false)
+                ++n; ++stat_n
+                return fs.lstat(_path, (err, stat) => {
+                  --n
+                  if (err) report(err); else {
+                    if (path_stated.get(_path) === false) {
+                      path_stated.set(_path, true)
+                      if (stat.isDirectory()) {
+                        return readdir(_path)
+                      } else if (stat.isFile()) {
+                        stat_size += stat.size
+                        if (stat.size > 0) {
+                          ++select_n; select_size += stat.size
+                          by_dev.get_map(stat.dev).get_map(stat.size).get_map('').get_array(stat.ino).push(_path)
+                        }
+                      }
                     }
                   }
-                }
-                if (n === 0) return done()
-              })
+                  if (n === 0) return done()
+                })
+              }
             }
             if (pathsArray) {
               for (const _path of pathsArray) {

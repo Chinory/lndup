@@ -1,6 +1,6 @@
 {
   "name": "lndup",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Tiny Node.js program to hardlink duplicate files optimally",
   "main": "lndup.js",
   "directories": {
