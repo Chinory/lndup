@@ -90,9 +90,9 @@
 
       // command-line options
       const ACTION = (argm.delete('dry-run') | argm.delete('n')) === 0
-      const VERBOSE = (argm.delete('verbose') | argm.delete('v')) > 0
+      const VERBOSE = (argm.delete('verbose') | argm.delete('v')) !== 0
       const EXTINFO = (argm.delete('quiet') | argm.delete('q')) === 0
-      const USE_STDIN = (argm.delete('stdin') | argm.delete('i')) > 0
+      const USE_STDIN = (argm.delete('stdin') | argm.delete('i')) !== 0
 
       // check invaild command-line options
       if (argm.size > 1) {
@@ -315,6 +315,7 @@
               if (n === 0) return done()
             }
             function done () {
+              kill()
               if (EXTINFO) {
                 tprintf(
                   ['#Stat: verify: internal', szstr(hash_int_size), hash_int_n],
@@ -322,7 +323,6 @@
                 )
                 console.timeEnd('#Time: verify')
               }
-              kill()
               return resolve(by_dev)
             }
             for (const by_size of by_dev.values()) {

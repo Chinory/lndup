@@ -1,145 +1,95 @@
 # lndup
 
-Tiny Node.js program to hardlink duplicate files optimally.
+Hardlink duplicate files.
 
-- Use async I/O for the best performance
-- One file one stat system call, making only needed files to hash
-- Multi-process hash with small file optimization
+- use asynchronous I/O
+- one file one stat() call
+- full-speed hash least files
 
 ## Usage
 
-```shell
-$ lndup --help
-Usage: lndup [OPTION]... PATH...
+```
+Usage: lndup [OPTION]... [PATH]...
 Hardlink duplicate files.
 
   -n, --dry-run  don't link
   -v, --verbose  explain what is being done
   -q, --quiet    don't output extra information
-      --help     display this help and exit
+  -i, --stdin    read more paths from stdin
+  -h, --help     display this help and exit
       --version  output version information and exit
       --hasher   start as a hash work process
 
 See <https://github.com/chinory/lndup>
 ```
 
-- `PATH` can be not only a directory, but also a file.
+- Not follow symbolic links.
 
+## Example
 
-- This program does not follow symbolic links.
-
-
-### Output
-
-- All outputs are executable unix-shell code, using comment to carry extra information.
+All outputs are executable unix-shell code, using comment to carry extra information.
 
 ```shell
-$ lndup -v test/ 
-#Stat: 1-probe: Readdir:   3       242B
-#Stat: 1-probe: Stat:     21  144.02MiB
-#Stat: 1-probe: Select:   17  144.02MiB
-#Profile: Time: 1-probe: 7.562ms
-#Stat: 2-verify: Hash-Int:         0B    0.00%  0    0.00%       NaN  NaNx
-#Stat: 2-verify: Hash-Ext:  144.00MiB  100.00%  9  100.00%  16.00MiB  NaNx
-#Profile: Time: 2-verify: 166.890ms
-#Profile: Time: 3-solve: 0.394ms
-#Profile: Time: scheme: 175.183ms
-ln -f -- 'test/b' 'test/a'
-ln -f -- 'test/b' 'test/c'
-ln -f -- 'test/ran1_1' 'test/ran1_2'
-ln -f -- 'test/root/ran4_1' 'test/root/ran4_2'
-ln -f -- 'test/root/ran4_1' 'test/root/ran4_2' #Error: EACCES: permission denied, rename 'test/root/ran4_2' -> 'test/root/ran4_2.5ad852766ce2d5d3'
-#Profile: Time: execute: 7.152ms
-#Profile: Memory: rss: 32.38MiB
-#Profile: Memory: heapTotal: 10.33MiB
-#Profile: Memory: heapUsed: 5.67MiB
-#Profile: Memory: external: 16.6KiB
-#Result: TODO:  64.00MiB  67108864  3  4
-#Result: DONE:  48.00MiB  50331648  2  3
-#Result: FAIL:  16.00MiB  16777216  1  1
+$ lndup -v .
+#Stat: probe: readdir       204B   3
+#Stat: probe: stat     144.02MiB  23
+#Stat: probe: select   144.02MiB  19
+#Time: probe: 7.351ms
+#Stat: verify: internal         0B  0
+#Stat: verify: external  144.00MiB  9
+#Time: verify: 183.209ms
+#Time: solve: 0.110ms
+ln -f -- '16M/null_2' '16M/null_3'
+ln -f -- '16M/null_2' '16M/null_1'
+ln -f -- '16M/ran1_1' '16M/ran1_2'
+ln -f -- 'root/ran4_1' 'root/ran4_2'
+ln -f -- 'root/ran4_1' 'root/ran4_2' #Error: EACCES: permission denied, rename 'root/ran4_2' -> 'root/ran4_2.e8c70ebe0635ab41'
+#Time: execute: 8.331ms
+#Result: TODO:  64.00MiB  3  4
+#Result: DONE:  48.00MiB  2  3
+#Result: FAIL:  16.00MiB  1  1
 ```
 
-Notice that the `ran4_1` appeared twice, the first one is in **stdout**, the second one is in **stderr**.
+## Notice
 
-- Plenty of information provided by default. You can use `-q, --quiet` to disable it.
+Failed operation will be output to stderr in following format:
 
 ```shell
-$ sudo lndup -n /usr
-#Stat: 1-probe: Readdir:   16235  14.81MiB
-#Stat: 1-probe: Stat:     295368  8.163GiB
-#Stat: 1-probe: Select:   252786  8.163GiB
-#Profile: Time: 1-probe: 2345.568ms
-#Stat: 2-verify: Hash-Int:  383.35MiB  23.66%  186581  82.27%   2.1KiB   1.00x
-#Stat: 2-verify: Hash-Ext:   1.208GiB  76.34%   40204  17.73%  31.5KiB  14.98x
-#Profile: Time: 2-verify: 2906.962ms
-#Profile: Time: 3-solve: 88.435ms
-#Profile: Time: scheme: 5341.290ms
-#Profile: Time: execute: 10.915ms
-#Profile: Memory: rss: 288.58MiB
-#Profile: Memory: heapTotal: 200.59MiB
-#Profile: Memory: heapUsed: 135.77MiB
-#Profile: Memory: external: 49.1KiB
-#Result: TODO:  235.19MiB  246617152  19824  33488
-#Result: DONE:         0B          0      0      0
-#Result: FAIL:         0B          0      0      0
+ln -f -- 'root/ran4_1' 'root/ran4_2' #Error: EACCES: permission denied, rename 'root/ran4_2' -> 'root/ran4_2.e8c70ebe0635ab41'
 ```
 
-|                                  | data        | % (CPU)  | files    | % (I/O)  | average file size | x        |
-| -------------------------------- | ----------- | -------- | -------- | -------- | ----------------- | -------- |
-| `#Stat:` `2-verify:` `Hash-Int:` | `287.63MiB` | `14.80%` | `145224` | `80.83%` | `2.0KiB`          | `1.00x`  |
-| `#Stat:` `2-verify:` `Hash-Ext:` | `1.617GiB`  | `85.20%` | `34438`  | `19.17%` | `49.2KiB`         | `24.28x` |
-
-|                    | Freed Space | Freed Space in Bytes | Link Sources | Link Destinations |
-| ------------------ | ----------- | -------------------- | ------------ | ----------------- |
-| `#Result:` `TODO:` | `222.46MiB` | `233269209`          | `20830`      | `29523`           |
-
-### Use Safely
-
-`stderr` outputs failed operations with format `ln -f -- 'src' 'dst' #Error:...`  . For  `ln` outputs, you can choose whether to execute without losing data. But beware of `mv` `rm` outputs, they are remedies of failed `ln` operations, **you must ensure them to be done**.
-
-Fortunately, remedies **rarely** fail, as they are all counter-operations of just-successful operations.
+Beware of `mv` and `rm` fails, they are remedies of failed link operation, **you need to complete them manually**. Fortunately, the remedies rarely fail, as they are all counter-operations of just-successful operations.
 
 ## Requirement
 
-- Node.js 9+
-
-## Tested
-
-- Linux 4.14: ext4, ntfs-3g
-- Windows 10: NTFS
-
-## Performance
-
-See [releases](https://github.com/chinory/lndup/releases)
+- Node.js >=9
 
 ## Introduction
 
-made of nested maps:
+### data structure
 
+```javascript
+// nested maps
+by_dev // by_dev instanceof Map
+by_size = by_dev[stat.dev] // by_size instanceof Map
+by_content = by_size[stat.size] // by_content instanceof Map
+by_ino = by_content[hash.digest] // by_ino instanceof Map
+paths = by_ino[stat.ino] // paths instanceof Array
 ```
-by_size = by_dev[stat.dev]
-by_content = by_size[stat.size]
-by_ino = by_content[hash]
-paths = by_ino[ino] 
+
+### processing
+
+```javascript
+probe(paths).then(verify).then(solve).then(execute)
 ```
 
-### probe
+**probe**: Traverse the input paths asynchronously while use the stat()'s result to group files.
 
-fully asynchronous recursive travel
+**verify**: Find out least files to hash, and group files by the digest. 
 
-I want to detect "Inline Storage" files, which is so small that it's content was storaged in Metadata. It seems can't always successfully make hardlinks from these files. Theoretically it can be detected by `stat.blocks==0 && stat.size>0` , but on Windows, the `stat.blocks` is always `undefined` . So I don't know how to do.
+**solve: **Make solution that instruct to hard link the file whose inode is majority to other files.
 
-### verify
-
-multi-process hash, hash small files in master process synchronously
-
-### solve
-
-instruct to hardlink files whose inode is majority to others.
-
-### execute
-
-execute that solution
+**execute**: Execute that solution or just dry-run.
 
 ## License
 
