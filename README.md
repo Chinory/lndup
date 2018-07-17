@@ -52,7 +52,7 @@ ln -f -- 'root/ran4_1' 'root/ran4_2' #Error: EACCES: permission denied, rename '
 
 ## Notice
 
-Failed operation will be output to stderr in following format:
+Failed operation will be output to stderr like following:
 
 ```shell
 ln -f -- 'root/ran4_1' 'root/ran4_2' #Error: EACCES: permission denied, rename 'root/ran4_2' -> 'root/ran4_2.e8c70ebe0635ab41'
@@ -85,9 +85,9 @@ probe(paths).then(verify).then(solve).then(execute)
 
 **probe**: Traverse the input paths asynchronously while use the stat()'s result to group files.
 
-**verify**: Find out least files to hash, and group files by the digest. 
+**verify** Find out least files to hash, and group files by the digest. 
 
-**solve: **Make solution that instruct to hard link the file whose inode is majority to other files.
+**solve: **Make solution that instruct to hardlink the file whose inode is majority to other files.
 
 **execute**: Execute that solution or just dry-run.
 
