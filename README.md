@@ -93,4 +93,4 @@ probe(paths).then(verify).then(solve).then(execute)
 
 ## License
 
-- GPL v3.0
+- MIT
