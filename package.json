@@ -1,14 +1,8 @@
 {
   "name": "lndup",
   "version": "0.5.3",
-  "description": "Tiny Node.js program to hardlink duplicate files optimally",
-  "main": "lndup.js",
-  "directories": {
-    "test": "test"
-  },
-  "scripts": {
-    "test": "./lndup.js -n ."
-  },
+  "description": "Hardlink duplicate files.",
+  "main": "./bin/lndup",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/chinory/lndup.git"
