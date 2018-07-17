@@ -6,6 +6,12 @@ Hardlink duplicate files.
 - one file one stat() call
 - full-speed hash least files
 
+## Installation
+
+```
+$ npm i -g lndup
+```
+
 ## Usage
 
 ```
