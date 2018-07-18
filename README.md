@@ -91,9 +91,9 @@ probe(paths).then(verify).then(solve).then(execute)
 
 **probe**: Traverse the input paths asynchronously while use the stat()'s result to group files.
 
-**verify** Find out least files to hash, and group files by the digest. 
+**verify**: Find out least files to hash, and group files by the digest. 
 
-**solve: **Make solution that instruct to hardlink the file whose inode is majority to other files.
+**solve**: Make solution that instruct to hardlink the file whose inode is majority to other files.
 
 **execute**: Execute that solution or just dry-run.
 
