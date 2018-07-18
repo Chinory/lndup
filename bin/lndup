@@ -7,8 +7,7 @@ const argm = (argv => {
       if (argv[i].length > 2) {
         argm.set(argv[i].slice(2))
       } else {
-        ++i
-        break
+        ++i; break
       }
     } else {
       for (const char of argv[i].slice(1)) {
@@ -23,7 +22,7 @@ if ((argm.size === 1 && argm.get('').length === 0) || (argm.delete('help') | arg
   console.log(`Usage: ${require('path').basename(process.argv[1])} [OPTION]... PATH...`)
   console.log("Hardlink duplicate files.\n\n  -n, --dry-run  don't link\n  -v, --verbose  explain what is being done\n  -q, --quiet    don't output extra information\n  -i, --stdin    read more paths from stdin\n  -h, --help     display this help and exit\n      --version  output version information and exit\n      --hasher   start as a hash work process\n\nSee <https://github.com/chinory/lndup>")
 } else if (argm.delete('version')) {
-  console.log('lndup v1.0.2')
+  console.log('lndup v1.0.3')
 } else {
   const HASH_ALGORITHM = 'sha1'
   const HASH_LENGTH = 20
@@ -76,6 +75,7 @@ if ((argm.size === 1 && argm.get('').length === 0) || (argm.delete('help') | arg
         }
       }
       console.error(`Try '${BASENAME} --help' for more information.`)
+      process.exitCode = 1
     } else {
       const os = require('os')
       const fs = require('fs')
