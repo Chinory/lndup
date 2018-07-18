@@ -217,7 +217,7 @@ if ((argm.size === 1 && argm.get('').length === 0) || (argm.delete('help') | arg
               if (err) report(err); else {
                 for (const name of files) {
                   const _path = path.join(dir, name)
-                  readdir_size += _path.length
+                  readdir_size += Buffer.byteLength(_path)
                   stat(_path)
                 }
               }
