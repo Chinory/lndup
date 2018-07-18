@@ -287,7 +287,8 @@ if ((argm.size === 1 && argm.get('').length === 0) || (argm.delete('help') | arg
             if (EXTINFO) {
               tprintf(
                 ['#Stat: verify: internal', szstr(hash_int_size), hash_int_n],
-                ['#Stat: verify: external', szstr(hash_ext_size), hash_ext_n]
+                ['#Stat: verify: external', szstr(hash_ext_size), hash_ext_n],
+                ['#Stat: verify: total   ', szstr(hash_int_size + hash_ext_size), hash_int_n + hash_ext_n]
               )
               console.timeEnd('#Time: verify')
             }
