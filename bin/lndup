@@ -19,7 +19,7 @@ const argm = (argv => {
   return argm.set('', argv.slice(i))
 })(process.argv.slice(2))
 
-if (argm.size === 1 || (argm.delete('help') | argm.delete('h'))) {
+if ((argm.size === 1 && argm.get('').length === 0) || (argm.delete('help') | argm.delete('h'))) {
   console.log(`Usage: ${require('path').basename(process.argv[1])} [OPTION]... PATH...`)
   console.log("Hardlink duplicate files.\n\n  -n, --dry-run  don't link\n  -v, --verbose  explain what is being done\n  -q, --quiet    don't output extra information\n  -i, --stdin    read more paths from stdin\n  -h, --help     display this help and exit\n      --version  output version information and exit\n      --hasher   start as a hash work process\n\nSee <https://github.com/chinory/lndup>")
 } else if (argm.delete('version')) {
