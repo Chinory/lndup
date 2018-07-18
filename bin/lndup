@@ -1,106 +1,95 @@
 #!/usr/bin/env node
 'use strict'
-{
-  const noop = function () {}
-  const path = require('path')
-  const BASENAME = path.basename(process.argv[1])
-
-  // consts
-  const HASH_ALGORITHM = 'sha1'
-  const HASH_LENGTH = 20
-
-  // parse arguments to a Map
-  const argm = (function argv2m (argv) {
-    var argm = new Map()
-    for (var i = 0; i < argv.length && argv[i].length > 1 && argv[i].startsWith('-'); ++i) {
-      if (argv[i].startsWith('--')) {
-        if (argv[i].length > 2) {
-          argm.set(argv[i].slice(2))
-        } else {
-          ++i; break
-        }
+const argm = (argv => {
+  var argm = new Map()
+  for (var i = 0; i < argv.length && argv[i].length > 1 && argv[i].startsWith('-'); ++i) {
+    if (argv[i].startsWith('--')) {
+      if (argv[i].length > 2) {
+        argm.set(argv[i].slice(2))
       } else {
-        for (let char of argv[i].slice(1)) {
-          argm.set(char)
-        }
+        ++i
+        break
+      }
+    } else {
+      for (const char of argv[i].slice(1)) {
+        argm.set(char)
       }
     }
-    return argm.set('', argv.slice(i))
-  })(process.argv.slice(2))
+  }
+  return argm.set('', argv.slice(i))
+})(process.argv.slice(2))
 
-  if (argm.size === 1 || (argm.delete('help') | argm.delete('h'))) {
-    console.log(`Usage: ${BASENAME} [OPTION]... PATH...`)
-    console.log("Hardlink duplicate files.\n\n  -n, --dry-run  don't link\n  -v, --verbose  explain what is being done\n  -q, --quiet    don't output extra information\n  -i, --stdin    read more paths from stdin\n  -h, --help     display this help and exit\n      --version  output version information and exit\n      --hasher   start as a hash work process\n\nSee <https://github.com/chinory/lndup>")
-  } else
-  if (argm.delete('version')) {
-    console.log('lndup v1.0.0')
-  } else {
+if (argm.size === 1 || (argm.delete('help') | argm.delete('h'))) {
+  console.log(`Usage: ${require('path').basename(process.argv[1])} [OPTION]... PATH...`)
+  console.log("Hardlink duplicate files.\n\n  -n, --dry-run  don't link\n  -v, --verbose  explain what is being done\n  -q, --quiet    don't output extra information\n  -i, --stdin    read more paths from stdin\n  -h, --help     display this help and exit\n      --version  output version information and exit\n      --hasher   start as a hash work process\n\nSee <https://github.com/chinory/lndup>")
+} else if (argm.delete('version')) {
+  console.log('lndup v1.0.1')
+} else {
+  const HASH_ALGORITHM = 'sha1'
+  const HASH_LENGTH = 20
+  if (argm.delete('hasher')) {
+    const noop = () => {}
     const fs = require('fs')
     const crypto = require('crypto')
     const readline = require('readline')
-
-    if (argm.delete('hasher')) {
-      ; // main
-      (function main () {
-        const BUFSIZE = 1024 ** 2 * 16
-        const buff = Buffer.allocUnsafe(BUFSIZE)
-        const fail = Buffer.alloc(HASH_LENGTH)
-        readline.createInterface({input: process.stdin}).on('line', line => {
-          if (line.length === 0) process.exit()
-          try {
-            var fd = fs.openSync(line, 'r')
-            let len = fs.fstatSync(fd).size
-            const hash = crypto.createHash(HASH_ALGORITHM)
-            while (len > BUFSIZE) {
-              fs.readSync(fd, buff, 0, BUFSIZE, null)
-              hash.update(buff)
-              len -= BUFSIZE
-            }
-            fs.readSync(fd, buff, 0, len, null)
-            var digest = hash.update(buff.slice(0, len)).digest()
-          } catch (err) {
-            process.stdout.write(fail)
-            process.stderr.write(`#${err}\n`)
+    const BUFSIZE = 1024 ** 2 * 16
+    const FAIL = Buffer.alloc(HASH_LENGTH)
+    const buff = Buffer.allocUnsafe(BUFSIZE)
+    readline.createInterface({input: process.stdin})
+      .on('line', line => {
+        if (line.length === 0) process.exit()
+        let fd, digest
+        try {
+          fd = fs.openSync(line, 'r')
+          let len = fs.fstatSync(fd).size
+          const hasher = crypto.createHash(HASH_ALGORITHM)
+          while (len > BUFSIZE) {
+            fs.readSync(fd, buff, 0, BUFSIZE, null)
+            hasher.update(buff)
+            len -= BUFSIZE
           }
-          if (fd) {
-            fs.close(fd, noop)
-            if (digest) process.stdout.write(digest)
-          }
-        })
-      })()
-    } else {
-      const child_process = require('child_process')
-
-      // command-line options
-      const ACTION = (argm.delete('dry-run') | argm.delete('n')) === 0
-      const VERBOSE = (argm.delete('verbose') | argm.delete('v')) !== 0
-      const EXTINFO = (argm.delete('quiet') | argm.delete('q')) === 0
-      const USE_STDIN = (argm.delete('stdin') | argm.delete('i')) !== 0
-
-      // check invaild command-line options
-      if (argm.size > 1) {
-        for (const name of argm.keys()) {
-          if (name.length > 0) {
-            console.error(`${BASENAME}: invalid option -- ${name}`)
-            break // usually just one
+          fs.readSync(fd, buff, 0, len, null)
+          hasher.update(buff.slice(0, len))
+          digest = hasher.digest()
+        } catch (err) {
+          process.stdout.write(FAIL)
+          process.stderr.write(`#${err}\n`)
+        }
+        if (fd) {
+          fs.close(fd, noop)
+          if (digest) {
+            process.stdout.write(digest)
           }
         }
-        console.error(`Try '${BASENAME} --help' for more information.`)
-        process.exit(1)
+      })
+  } else {
+    const ACTION = (argm.delete('dry-run') | argm.delete('n')) === 0
+    const VERBOSE = (argm.delete('verbose') | argm.delete('v')) !== 0
+    const EXTINFO = (argm.delete('quiet') | argm.delete('q')) === 0
+    const USE_STDIN = (argm.delete('stdin') | argm.delete('i')) !== 0
+    if (argm.size > 1) {
+      const BASENAME = require('path').basename(process.argv[1])
+      for (const name of argm.keys()) {
+        if (name.length > 0) {
+          console.error(`${BASENAME}: invalid option -- ${name}`)
+          break
+        }
       }
+      console.error(`Try '${BASENAME} --help' for more information.`)
+    } else {
+      const os = require('os')
+      const fs = require('fs')
+      const path = require('path')
+      const crypto = require('crypto')
+      const readline = require('readline')
+      const child_process = require('child_process')
 
-      // consts
-      const HASHER_N = require('os').cpus().length // use how many hasher child process
-      const SMALLS_SIZE = 1024 * 8 // the max value of small file criteria size
-
-      // format size(bytes) to human readable text
       const SIZE_UNIT = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
       const szstr = function (size) {
         for (var i = 0; i < 8 && size >= 1024; ++i) size /= 1024
         return size.toFixed(i) + SIZE_UNIT[i]
       }
 
-      // print right aligned table
       const tprintf = function () {
         const maxlen = []
         for (const line of arguments) {
@@ -119,15 +108,14 @@
         }
       }
 
-      // report error
       const report = function (err) {
         return console.error(`#${err}`)
       }
+
       const report_if = function (err) {
         if (err) return report(err)
       }
 
-      // use program self as hasher
       const hasher = function (callback, n) {
         var procs = []
         var queue = []
@@ -154,13 +142,11 @@
         }
         function kill () {
           for (const p of procs) p.stdin.write('\n')
-          // procs = undefined; queue = undefined; i = undefined
         }
         do { spawn() } while (--i > 0)
         return [send, kill]
       }
 
-      // safe link
       const link = function (src, dst) {
         const sav = `${dst}.${crypto.randomBytes(8).toString('hex')}`
         fs.renameSync(dst, sav)
@@ -181,9 +167,8 @@
         }
       }
 
-      // get_*() methods with default value
       class DefaultMap extends Map {
-        get_array (key) {
+        getArray (key) {
           if (this.has(key)) {
             return this.get(key)
           } else {
@@ -192,7 +177,7 @@
             return value
           }
         }
-        get_map (key) {
+        getMap (key) {
           if (this.has(key)) {
             return this.get(key)
           } else {
@@ -203,226 +188,233 @@
         }
       }
 
-      ; // main
-      (function main () {
-        function probe (pathsArray, pathsReadline) {
-          return new Promise(resolve => {
+      const probe = function (paths) {
+        return new Promise(resolve => {
+          if (EXTINFO) {
+            console.time('#Time: probe')
+          }
+          var callbacks = 0
+          var by_dev = new DefaultMap()
+          var path_stated = new Map()
+          var select_n = 0; var select_size = 0
+          var stat_n = 0; var stat_size = 0
+          var readdir_n = 0; var readdir_size = 0
+          function done () {
             if (EXTINFO) {
-              console.time('#Time: probe')
+              tprintf(
+                ['#Stat: probe: readdir', szstr(readdir_size), readdir_n],
+                ['#Stat: probe: stat   ', szstr(stat_size), stat_n],
+                ['#Stat: probe: select ', szstr(select_size), select_n]
+              )
+              console.timeEnd('#Time: probe')
             }
-            var n = 0
-            var by_dev = new DefaultMap()
-            var path_stated = new Map()
-            var select_n = 0; var select_size = 0
-            var stat_n = 0; var stat_size = 0
-            var readdir_n = 0; var readdir_size = 0
-            function done () {
-              if (EXTINFO) {
-                tprintf(
-                  ['#Stat: probe: readdir', szstr(readdir_size), readdir_n],
-                  ['#Stat: probe: stat   ', szstr(stat_size), stat_n],
-                  ['#Stat: probe: select ', szstr(select_size), select_n]
-                )
-                console.timeEnd('#Time: probe')
+            return resolve(by_dev)
+          }
+          function readdir (dir) {
+            ++callbacks; ++readdir_n
+            return fs.readdir(dir, (err, files) => {
+              --callbacks
+              if (err) report(err); else {
+                for (const name of files) {
+                  const _path = path.join(dir, name)
+                  readdir_size += _path.length
+                  stat(_path)
+                }
               }
-              return resolve(by_dev)
-            }
-            function readdir (dir) {
-              ++n; ++readdir_n
-              return fs.readdir(dir, (err, files) => {
-                --n
+              if (callbacks === 0) return done()
+            })
+          }
+          function stat (_path) {
+            if (!path_stated.has(_path)) {
+              path_stated.set(_path, false)
+              ++callbacks; ++stat_n
+              return fs.lstat(_path, (err, stat) => {
+                --callbacks
                 if (err) report(err); else {
-                  for (const name of files) {
-                    const _path = path.join(dir, name)
-                    readdir_size += _path.length
-                    stat(_path)
+                  if (path_stated.get(_path) === false) {
+                    path_stated.set(_path, true)
+                    if (stat.isDirectory()) {
+                      return readdir(_path)
+                    } else if (stat.isFile()) {
+                      stat_size += stat.size
+                      if (stat.size > 0) {
+                        ++select_n; select_size += stat.size
+                        by_dev.getMap(stat.dev).getMap(stat.size).getMap('').getArray(stat.ino).push(_path)
+                      }
+                    }
                   }
                 }
-                if (n === 0) return done()
+                if (callbacks === 0) return done()
               })
             }
-            function stat (_path) {
-              if (!path_stated.has(_path)) {
-                path_stated.set(_path, false)
-                ++n; ++stat_n
-                return fs.lstat(_path, (err, stat) => {
-                  --n
-                  if (err) report(err); else {
-                    if (path_stated.get(_path) === false) {
-                      path_stated.set(_path, true)
-                      if (stat.isDirectory()) {
-                        return readdir(_path)
-                      } else if (stat.isFile()) {
-                        stat_size += stat.size
-                        if (stat.size > 0) {
-                          ++select_n; select_size += stat.size
-                          by_dev.get_map(stat.dev).get_map(stat.size).get_map('').get_array(stat.ino).push(_path)
-                        }
-                      }
-                    }
-                  }
-                  if (n === 0) return done()
-                })
-              }
-            }
-            if (pathsArray) {
-              for (const _path of pathsArray) {
-                stat(path.join(_path))
-              }
-            }
-            if (pathsReadline) {
-              ++n
-              pathsReadline.on('line', (_path) => stat(path.join(_path)))
-                .on('close', () => { if (--n === 0) return done() })
-            }
-          })
-        }
-        function verify (by_dev) {
-          return new Promise(resolve => {
-            if (EXTINFO) {
-              console.time('#Time: verify')
-            }
-            var n = 0
-            var smalls_size = SMALLS_SIZE
-            var hash_int_n = 0; var hash_int_size = 0
-            var hash_ext_n = 0; var hash_ext_size = 0
-            var flow_int = 0; var flow_ext = 0; var flow_n = 0
-            var buff = Buffer.allocUnsafe(SMALLS_SIZE)
-            var fail = Buffer.alloc(HASH_LENGTH)
-            var send, kill; [send, kill] = hasher(hashback, HASHER_N)
-            function hashback (hash, extra) {
-              --n
-              if (!hash.equals(fail)) {
-                extra[0].get_map(hash.toString('binary')).set(extra[1], extra[2])
-              }
-              if (n === 0) return done()
-            }
-            function done () {
-              kill()
-              if (EXTINFO) {
-                tprintf(
-                  ['#Stat: verify: internal', szstr(hash_int_size), hash_int_n],
-                  ['#Stat: verify: external', szstr(hash_ext_size), hash_ext_n]
-                )
-                console.timeEnd('#Time: verify')
-              }
-              return resolve(by_dev)
-            }
-            for (const by_size of by_dev.values()) {
-              for (const [size, by_content] of by_size) {
-                const by_ino = by_content.get('')
-                if (by_ino) {
-                  if (by_ino.size > 1) {
-                    for (const [ino, paths] of by_ino) {
-                      if (size > smalls_size) {
-                        ++hash_ext_n; hash_ext_size += size
-                        ++n
-                        send(paths[0], [by_content, ino, paths])
-                      } else {
-                        ++hash_int_n; hash_int_size += size
-                        let fd
-                        try {
-                          fd = fs.openSync(paths[0], 'r')
-                          const hash = crypto.createHash(HASH_ALGORITHM)
-                          fs.readSync(fd, buff, 0, size, null)
-                          hash.update(buff.slice(0, size))
-                          by_content.get_map(hash.digest('binary')).set(ino, paths)
-                        } catch (err) {
-                          report(err)
-                        }
-                        if (fd) fs.close(fd, report_if)
-                      }
-                      ++flow_n; flow_ext += size
-                      smalls_size = SMALLS_SIZE * flow_ext / (flow_int + flow_ext)
-                      if (flow_n === 8) {
-                        flow_n = 4; flow_int >>= 1; flow_ext >>= 1
-                      }
-                    }
-                  }
-                  by_content.delete('')
-                }
-              }
-            }
-            if (n === 0) return done()
-          })
-        }
-        function solve (by_dev) {
-          if (EXTINFO) {
-            console.time('#Time: solve')
           }
-          const solutions = []
+          if (paths.array) {
+            for (const _path of paths.array) {
+              stat(path.join(_path))
+            }
+          }
+          if (paths.readline) {
+            ++callbacks
+            paths.readline.on('line', (_path) => stat(path.join(_path)))
+              .on('close', () => { if (--callbacks === 0) return done() })
+          }
+        })
+      }
+      const verify = function (by_dev) {
+        const HASHER_N = os.cpus().length
+        const SMALLS_SIZE = 1024 * 8
+        return new Promise(resolve => {
+          if (EXTINFO) {
+            console.time('#Time: verify')
+          }
+          var callbacks = 0
+          var smalls_size = SMALLS_SIZE
+          var hash_int_n = 0; var hash_int_size = 0
+          var hash_ext_n = 0; var hash_ext_size = 0
+          var flow_int = 0; var flow_ext = 0; var flow_n = 0
+          var buff = Buffer.allocUnsafe(SMALLS_SIZE)
+          var fail = Buffer.alloc(HASH_LENGTH)
+          var send, kill; [send, kill] = hasher(hashback, HASHER_N)
+          function hashback (hash, extra) {
+            --callbacks
+            if (!hash.equals(fail)) {
+              extra[0].getMap(hash.toString('binary')).set(extra[1], extra[2])
+            }
+            if (callbacks === 0) return done()
+          }
+          function done () {
+            kill()
+            if (EXTINFO) {
+              tprintf(
+                ['#Stat: verify: internal', szstr(hash_int_size), hash_int_n],
+                ['#Stat: verify: external', szstr(hash_ext_size), hash_ext_n]
+              )
+              console.timeEnd('#Time: verify')
+            }
+            return resolve(by_dev)
+          }
           for (const by_size of by_dev.values()) {
             for (const [size, by_content] of by_size) {
-              for (const by_ino of by_content.values()) {
+              const by_ino = by_content.get('')
+              if (by_ino) {
                 if (by_ino.size > 1) {
-                  let major_n = 0
-                  let major_i = 0
-                  const dsts = []
                   for (const [ino, paths] of by_ino) {
-                    if (paths.length > major_n) {
-                      major_n = paths.length
-                      major_i = ino
+                    if (size > smalls_size) {
+                      ++hash_ext_n; hash_ext_size += size
+                      ++callbacks
+                      send(paths[0], [by_content, ino, paths])
+                    } else {
+                      ++hash_int_n; hash_int_size += size
+                      let fd
+                      try {
+                        fd = fs.openSync(paths[0], 'r')
+                        const hash = crypto.createHash(HASH_ALGORITHM)
+                        fs.readSync(fd, buff, 0, size, null)
+                        hash.update(buff.slice(0, size))
+                        by_content.getMap(hash.digest('binary')).set(ino, paths)
+                      } catch (err) {
+                        report(err)
+                      }
+                      if (fd) fs.close(fd, report_if)
+                    }
+                    ++flow_n; flow_ext += size
+                    smalls_size = SMALLS_SIZE * flow_ext / (flow_int + flow_ext)
+                    if (flow_n === 8) {
+                      flow_n = 4; flow_int >>= 1; flow_ext >>= 1
                     }
                   }
-                  for (const [ino, paths] of by_ino) {
-                    if (ino !== major_i) {
-                      dsts.push(...paths)
-                    }
-                  }
-                  solutions.push([size, by_ino.get(major_i)[0], dsts])
                 }
+                by_content.delete('')
               }
             }
           }
+          if (callbacks === 0) return done()
+        })
+      }
+      const solve = function (by_dev) {
+        if (EXTINFO) {
+          console.time('#Time: solve')
+        }
+        const solutions = []
+        for (const by_size of by_dev.values()) {
+          for (const [size, by_content] of by_size) {
+            for (const by_ino of by_content.values()) {
+              if (by_ino.size > 1) {
+                let major_n = 0
+                let major_i = 0
+                const dsts = []
+                for (const [ino, paths] of by_ino) {
+                  if (paths.length > major_n) {
+                    major_n = paths.length
+                    major_i = ino
+                  }
+                }
+                for (const [ino, paths] of by_ino) {
+                  if (ino !== major_i) {
+                    dsts.push(...paths)
+                  }
+                }
+                solutions.push([size, by_ino.get(major_i)[0], dsts])
+              }
+            }
+          }
+        }
+        if (EXTINFO) {
           console.timeEnd('#Time: solve')
-          return solutions
         }
-        function execute (solutions) {
-          if (EXTINFO) {
-            console.time('#Time: execute')
-          }
-          var todo_size = 0; var todo_src_n = 0; var todo_dst_n = 0
-          var succ_size = 0; var succ_src_n = 0; var succ_dst_n = 0
-          var fail_size = 0; var fail_src_n = 0; var fail_dst_n = 0
-          for (const [size, src, dsts] of solutions) {
-            let succ_src_a = 0
-            let fail_src_a = 0
-            for (const dst of dsts) {
-              if (VERBOSE) {
-                console.log(`ln -f -- '${src}' '${dst}'`)
-              }
-              if (ACTION) {
-                try {
-                  link(src, dst)
-                  succ_size += size
-                  succ_src_a = 1
-                  succ_dst_n += 1
-                } catch (err) {
-                  console.error(`ln -f -- '${src}' '${dst}' #${err}`)
-                  fail_size += size
-                  fail_src_a = 1
-                  fail_dst_n += 1
-                }
-              }
-              todo_size += size
-              todo_dst_n += 1
+        return solutions
+      }
+      const execute = function (solutions) {
+        if (EXTINFO) {
+          console.time('#Time: execute')
+        }
+        var todo_size = 0; var todo_src_n = 0; var todo_dst_n = 0
+        var succ_size = 0; var succ_src_n = 0; var succ_dst_n = 0
+        var fail_size = 0; var fail_src_n = 0; var fail_dst_n = 0
+        for (const [size, src, dsts] of solutions) {
+          let succ_src_a = 0
+          let fail_src_a = 0
+          for (const dst of dsts) {
+            if (VERBOSE) {
+              console.log(`ln -f -- '${src}' '${dst}'`)
             }
-            todo_src_n += 1
-            succ_src_n += succ_src_a
-            fail_src_n += fail_src_a
+            if (ACTION) {
+              try {
+                link(src, dst)
+                succ_size += size
+                succ_src_a = 1
+                succ_dst_n += 1
+              } catch (err) {
+                console.error(`ln -f -- '${src}' '${dst}' #${err}`)
+                fail_size += size
+                fail_src_a = 1
+                fail_dst_n += 1
+              }
+            }
+            todo_size += size
+            todo_dst_n += 1
           }
-          if (EXTINFO) {
-            console.timeEnd('#Time: execute')
-            tprintf(
-              ['#Result: TODO:', szstr(todo_size), todo_src_n, todo_dst_n],
-              ['#Result: DONE:', szstr(succ_size), succ_src_n, succ_dst_n],
-              ['#Result: FAIL:', szstr(fail_size), fail_src_n, fail_dst_n]
-            )
-          }
+          todo_src_n += 1
+          succ_src_n += succ_src_a
+          fail_src_n += fail_src_a
         }
-        probe(argm.get(''), USE_STDIN ? readline.createInterface({input: process.stdin}) : undefined)
-          .then(verify).then(solve).then(execute)
-      })()
+        if (EXTINFO) {
+          console.timeEnd('#Time: execute')
+          tprintf(
+            ['#Result: TODO:', szstr(todo_size), todo_src_n, todo_dst_n],
+            ['#Result: DONE:', szstr(succ_size), succ_src_n, succ_dst_n],
+            ['#Result: FAIL:', szstr(fail_size), fail_src_n, fail_dst_n]
+          )
+        }
+      }
+
+      probe({
+        array: argm.get(''),
+        readline: USE_STDIN ? readline.createInterface({input: process.stdin}) : undefined
+      })
+        .then(verify)
+        .then(solve)
+        .then(execute)
     }
   }
 }
