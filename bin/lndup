@@ -25,7 +25,7 @@ const opts = (() => {
   }
 })()
 
-if (process.argv.length < 2 || opts.help) {
+if (process.argv.length < 3 || opts.help) {
   console.log(`Usage: ${BASENAME} [options] [paths]`)
   console.log("\
 Hardlink duplicate files.\n\
@@ -50,7 +50,7 @@ Options:\n\
 See <https://github.com/chinory/lndup>"
   )
 } else if (opts.version) {
-  console.log('lndup v1.2.0')
+  console.log('lndup v1.2.1')
 } else {
   const HASH_ALGORITHM = 'sha1'
   const HASH_LENGTH = 20
