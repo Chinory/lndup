@@ -1,3 +1,4 @@
+'use strict'
 function * MapDeepIterator (map, maxDepth) {
   if (maxDepth < 1) {
     yield map
