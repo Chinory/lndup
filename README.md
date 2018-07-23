@@ -1,10 +1,11 @@
 # lndup
 
-Hardlink duplicate files.
+Hardlink duplicate files. Ultra fast!
 
-- use asynchronous I/O
+- asynchronous I/O
 - one file one stat() call
 - full-speed hash least files
+- customize filters and keys with javascript
 
 ## Installation
 
@@ -15,16 +16,25 @@ $ npm i -g lndup
 ## Usage
 
 ```
-Usage: lndup [OPTION]... [PATH]...
+Usage: lndup [options] [paths]
 Hardlink duplicate files.
 
+Options:
   -n, --dry-run  don't link
   -v, --verbose  explain what is being done
   -q, --quiet    don't output extra information
   -i, --stdin    read more paths from stdin
+
+  -f, --filter-file <function>  add a file filter:
+          (stats: fs.Stats, path: string): boolean
+  -d, --filter-dir  <function>  add a directory filter:
+          (stats: fs.Stats, path: string, files: string[]): boolean
+
+  -k, --key  <function>  add a key to distinguish files:
+          (stats: fs.Stats, path: string): any
+
   -h, --help     display this help and exit
       --version  output version information and exit
-      --hasher   start as a hash work process
 
 See <https://github.com/chinory/lndup>
 ```
@@ -43,6 +53,7 @@ $ lndup -v .
 #Time: probe: 7.351ms
 #Stat: verify: internal         0B  0
 #Stat: verify: external  144.00MiB  9
+#Stat: verify: total     144.00MiB  9
 #Time: verify: 183.209ms
 #Time: solve: 0.110ms
 ln -f -- '16M/null_2' '16M/null_3'
@@ -54,6 +65,32 @@ ln -f -- 'root/ran4_1' 'root/ran4_2' #Error: EACCES: permission denied, rename '
 #Result: TODO:  64.00MiB  3  4
 #Result: DONE:  48.00MiB  2  3
 #Result: FAIL:  16.00MiB  1  1
+```
+
+### Customize filter & key
+
+**File Filters**: If you don't want to hardlink files smaller than 1024 bytes:
+
+```shell
+$ lndup /path -f 'stats=>stats.size>=1024'
+```
+
+**Directory Filters**: While you don't want to consider a directory with more than 100 files:
+
+```shell
+$ lndup /path -f 'stats=>stats.size>=1024' -d '(s,p,f)=>f.length<=100'
+```
+
+**Extra keys**: Obviously, you don't want to hardlink the same files with different user, group and mode:
+
+```shell
+$ lndup /path -k 's=>s.uid' -k 's=>s.gid' -k 's=>s.mode'
+```
+
+**Require more**: Finally, you have a super idea:
+
+```shell
+$ lndup /path -k 'require("/path/to/keyfunc.js")' -f 'require("/path/to/filter.js")'
 ```
 
 ## Notice
@@ -76,11 +113,12 @@ Beware of `mv` and `rm` fails, they are remedies of failed link operation, **you
 
 ```javascript
 // nested maps
-by_dev // by_dev instanceof Map
-by_size = by_dev[stat.dev] // by_size instanceof Map
-by_content = by_size[stat.size] // by_content instanceof Map
-by_ino = by_content[hash.digest] // by_ino instanceof Map
-paths = by_ino[stat.ino] // paths instanceof Array
+devMap // devMap instanceof Map
+sizeMap = devMap[stat.dev] // sizeMap instanceof Map
+exkeyMap = sizeMap[stat.size] // exkeyMap instanceof Map
+contentMap = exkeyMap[value of extra keys] // contentMap instanceof Map
+inoMap = contentMap[hash.digest] // inoMap instanceof Map
+paths = inoMap[stat.ino] // paths instanceof Array
 ```
 
 ### processing
@@ -99,4 +137,4 @@ probe(paths).then(verify).then(solve).then(execute)
 
 ## License
 
-- MIT
+MIT © Chinory
