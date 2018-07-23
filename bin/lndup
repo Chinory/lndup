@@ -11,7 +11,7 @@ const opts = (() => {
     stdin: { def: false, set: ['i', 'stdin'] },
     fileFilters: { def: [], set: ['f', 'filter-file'] },
     dirFilters: { def: [], set: ['d', 'filter-dir'] },
-    key: { def: [], set: ['k', 'key'] },
+    extraKeys: { def: [], set: ['k', 'key'] },
     help: { def: false, set: ['h', 'help'] },
     version: { def: false, set: ['version'] },
     hasher: { def: false, set: ['hasher'] }
@@ -41,13 +41,16 @@ Options:\n\
   -d, --filter-dir  <function>  add a directory filter:\n\
           (stats: fs.Stats, path: string, files: string[]): boolean\n\
 \n\
+  -k, --key  <function>  add a key to distinguish files:\n\
+          (stats: fs.Stats, path: string): any\n\
+\n\
   -h, --help     display this help and exit\n\
       --version  output version information and exit\n\
 \n\
 See <https://github.com/chinory/lndup>"
   )
 } else if (opts.version) {
-  console.log('lndup v1.1.0')
+  console.log('lndup v1.2.0')
 } else {
   const HASH_ALGORITHM = 'sha1'
   const HASH_LENGTH = 20
@@ -197,6 +200,23 @@ See <https://github.com/chinory/lndup>"
       }
     }
 
+    const MapDeepIterator = function * (map, maxDepth) {
+      if (maxDepth < 1) {
+        yield map
+        return
+      }
+      for (const stack = [map.values()]; stack.length > 0;) {
+        const result = stack[stack.length - 1].next()
+        if (result.done) {
+          stack.pop()
+        } else if (stack.length < maxDepth && result.value instanceof Map) {
+          stack.push(result.value.values())
+        } else {
+          yield result.value
+        }
+      }
+    }
+
     const probe = function (paths) {
       return new Promise(resolve => {
         if (opts.prompt) {
@@ -259,12 +279,11 @@ See <https://github.com/chinory/lndup>"
                   } else if (stats.isFile() && stats.size > 0 && paths.filter.file(stats, path)) {
                     st.selectCount++
                     st.selectSize += stats.size
-                    devMap
-                      .getMap(stats.dev)
-                      .getMap(stats.size)
-                      .getMap('')
-                      .getArray(stats.ino)
-                      .push(path)
+                    let map = devMap.getMap(stats.dev).getMap(stats.size)
+                    for (const key of paths.exkeys(stats, path)) {
+                      map = map.getMap(key)
+                    }
+                    map.getMap('').getArray(stats.ino).push(path)
                   }
                 }
               }
@@ -328,44 +347,46 @@ See <https://github.com/chinory/lndup>"
           return resolve(devMap)
         }
         for (const sizeMap of devMap.values()) {
-          for (const [size, contentMap] of sizeMap) {
-            const inoMap = contentMap.get('')
-            if (inoMap) {
-              if (inoMap.size > 1) {
-                for (const [ino, paths] of inoMap) {
-                  if (size > smallsSize) {
-                    st.exthashCount++
-                    st.exthashSize += size
-                    ++cbs
-                    send(paths[0], [contentMap, ino, paths])
-                  } else {
-                    st.inthashCount++
-                    st.inthashSize += size
-                    let fd
-                    try {
-                      fd = fs.openSync(paths[0], 'r')
-                      const hash = crypto.createHash(HASH_ALGORITHM)
-                      fs.readSync(fd, buff, 0, size, null)
-                      hash.update(buff.slice(0, size))
-                      contentMap.getMap(hash.digest('binary')).set(ino, paths)
-                    } catch (err) {
-                      report(err)
+          for (const [size, exkeyMap] of sizeMap) {
+            for (const contentMap of MapDeepIterator(exkeyMap, opts.extraKeys.length)) {
+              const inoMap = contentMap.get('')
+              if (inoMap) {
+                if (inoMap.size > 1) {
+                  for (const [ino, paths] of inoMap) {
+                    if (size > smallsSize) {
+                      st.exthashCount++
+                      st.exthashSize += size
+                      ++cbs
+                      send(paths[0], [contentMap, ino, paths])
+                    } else {
+                      st.inthashCount++
+                      st.inthashSize += size
+                      let fd
+                      try {
+                        fd = fs.openSync(paths[0], 'r')
+                        const hash = crypto.createHash(HASH_ALGORITHM)
+                        fs.readSync(fd, buff, 0, size, null)
+                        hash.update(buff.slice(0, size))
+                        contentMap.getMap(hash.digest('binary')).set(ino, paths)
+                      } catch (err) {
+                        report(err)
+                      }
+                      if (fd) {
+                        fs.close(fd, reportIf)
+                      }
                     }
-                    if (fd) {
-                      fs.close(fd, reportIf)
+                    flow.count++
+                    flow.external += size
+                    smallsSize = SMALLS_SIZE * flow.external / (flow.internal + flow.external)
+                    if (flow.count === 8) {
+                      flow.count = 4
+                      flow.internal >>= 1
+                      flow.external >>= 1
                     }
-                  }
-                  flow.count++
-                  flow.external += size
-                  smallsSize = SMALLS_SIZE * flow.external / (flow.internal + flow.external)
-                  if (flow.count === 8) {
-                    flow.count = 4
-                    flow.internal >>= 1
-                    flow.external >>= 1
                   }
                 }
+                contentMap.delete('')
               }
-              contentMap.delete('')
             }
           }
         }
@@ -378,24 +399,26 @@ See <https://github.com/chinory/lndup>"
       }
       const solutions = []
       for (const sizeMap of devMap.values()) {
-        for (const [size, contentMap] of sizeMap) {
-          for (const inoMap of contentMap.values()) {
-            if (inoMap.size > 1) {
-              let nMajor = 0
-              let iMajor = 0
-              const dsts = []
-              for (const [ino, paths] of inoMap) {
-                if (paths.length > nMajor) {
-                  nMajor = paths.length
-                  iMajor = ino
+        for (const [size, exkeyMap] of sizeMap) {
+          for (const contentMap of MapDeepIterator(exkeyMap, opts.extraKeys.length)) {
+            for (const inoMap of contentMap.values()) {
+              if (inoMap.size > 1) {
+                let nMajor = 0
+                let iMajor = 0
+                const dsts = []
+                for (const [ino, paths] of inoMap) {
+                  if (paths.length > nMajor) {
+                    nMajor = paths.length
+                    iMajor = ino
+                  }
                 }
-              }
-              for (const [ino, paths] of inoMap) {
-                if (ino !== iMajor) {
-                  dsts.push(...paths)
+                for (const [ino, paths] of inoMap) {
+                  if (ino !== iMajor) {
+                    dsts.push(...paths)
+                  }
                 }
+                solutions.push([size, inoMap.get(iMajor)[0], dsts])
               }
-              solutions.push([size, inoMap.get(iMajor)[0], dsts])
             }
           }
         }
@@ -494,6 +517,24 @@ See <https://github.com/chinory/lndup>"
           process.exit(1)
         }
         return filter
+      })(),
+      exkeys: (function compileExtraKeys () {
+        try {
+          const calculator = opts.extraKeys.map(eval)
+          return function (stats, path) {
+            try {
+              return calculator.map(calc => calc(stats, path))
+            } catch (err) {
+              console.error(`${BASENAME}: key calculator runtime error:`)
+              console.error(err)
+              process.exit(1)
+            }
+          }
+        } catch (err) {
+          console.error(`${BASENAME}: key calculator compilation error:`)
+          console.error(err)
+          process.exit(1)
+        }
       })()
     })
       .then(verify)
