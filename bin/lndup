@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict'
-const _path = require('path')
-const BASENAME = _path.basename(process.argv[1])
+const { basename, join: joinPath } = require('path')
+const BASENAME = basename(process.argv[1])
 const opts = (() => {
   const parse = require('pargv-lite')
   const options = {
@@ -56,18 +56,20 @@ if (process.argv.length < 3 || opts.help) {
   if (opts.hasher) {
     const noop = () => {}
     const fs = require('fs')
-    const crypto = require('crypto')
-    const readline = require('readline')
+    const { createHash } = require('crypto')
+    const { createInterface } = require('readline')
     const BUFSIZE = 1024 ** 2 * 16
     const buff = Buffer.allocUnsafe(BUFSIZE)
-    readline.createInterface({input: process.stdin})
+    createInterface({input: process.stdin})
       .on('line', line => {
-        if (line.length === 0) process.exit()
+        if (line.length === 0) {
+          process.exit()
+        }
         let fd, digest
         try {
           fd = fs.openSync(line, 'r')
           let len = fs.fstatSync(fd).size
-          const hasher = crypto.createHash(HASH_ALGORITHM)
+          const hasher = createHash(HASH_ALGORITHM)
           while (len > BUFSIZE) {
             fs.readSync(fd, buff, 0, BUFSIZE, null)
             hasher.update(buff)
@@ -78,7 +80,7 @@ if (process.argv.length < 3 || opts.help) {
           digest = hasher.digest()
         } catch (err) {
           process.stdout.write(HASH_FAIL)
-          process.stderr.write(`#${err}\n`)
+          process.stderr.write('#' + err + '\n')
         }
         if (fd) {
           fs.close(fd, noop)
@@ -95,12 +97,12 @@ if (process.argv.length < 3 || opts.help) {
     const childProcess = require('child_process')
 
     const SIZE_UNIT = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
-    const szstr = function (size) {
+    const szstr = size => {
       for (var i = 0; size >= 1024 && i < 8; ++i) size /= 1024
       return size.toFixed(i) + SIZE_UNIT[i]
     }
 
-    const tprintf = function (...lines) {
+    const printTable = (...lines) => {
       const maxlen = []
       for (const line of lines) {
         for (const i in line) {
@@ -118,11 +120,11 @@ if (process.argv.length < 3 || opts.help) {
       }
     }
 
-    const report = function (err) {
+    const report = err => {
       return console.error('#' + err)
     }
 
-    const reportIf = function (err) {
+    const reportIf = err => {
       if (err) return report(err)
     }
 
@@ -168,7 +170,7 @@ if (process.argv.length < 3 || opts.help) {
       }
     }
 
-    const link = function (src, dst) {
+    const link = (src, dst) => {
       const sav = `${dst}.${crypto.randomBytes(8).toString('hex')}`
       fs.renameSync(dst, sav)
       try {
@@ -226,19 +228,19 @@ if (process.argv.length < 3 || opts.help) {
       }
     }
 
-    const probe = function (paths) {
+    const probe = paths => {
       return new Promise(resolve => {
         if (opts.prompt) {
           console.time('#Time: probe')
         }
         const st = {
-          readdir: { count: 0, size: 0 },
-          stat: { count: 0, size: 0 },
-          select: { count: 0, size: 0 }
+          readdir: { size: 0, count: 0 },
+          stat: { size: 0, count: 0 },
+          select: { size: 0, count: 0 }
         }
-        const done = function () {
+        const done = () => {
           if (opts.prompt) {
-            tprintf(
+            printTable(
               ['#Stat: probe: readdir', szstr(st.readdir.size), st.readdir.count],
               ['#Stat: probe: stat   ', szstr(st.stat.size), st.stat.count],
               ['#Stat: probe: select ', szstr(st.select.size), st.select.count]
@@ -249,7 +251,7 @@ if (process.argv.length < 3 || opts.help) {
         }
         const devMap = new DefaultMap()
         const pathState = new Map()
-        const readdir = function (path, stats) {
+        const readdir = (path, stats) => {
           ++cbs
           return fs.readdir(path, (err, files) => {
             --cbs
@@ -258,7 +260,7 @@ if (process.argv.length < 3 || opts.help) {
               report(err)
             } else if (paths.filter.dir(stats, path, files)) {
               for (const name of files) {
-                const pathname = _path.join(path, name)
+                const pathname = joinPath(path, name)
                 st.readdir.size += Buffer.byteLength(pathname)
                 stat(pathname)
               }
@@ -266,7 +268,7 @@ if (process.argv.length < 3 || opts.help) {
             if (cbs === 0) return done()
           })
         }
-        const stat = function (path) {
+        const stat = path => {
           if (!pathState.has(path)) {
             pathState.set(path, false)
             ++cbs
@@ -299,30 +301,30 @@ if (process.argv.length < 3 || opts.help) {
         let cbs = 0
         if (paths.array) {
           for (const path of paths.array) {
-            stat(_path.join(path))
+            stat(joinPath(path))
           }
         }
         if (paths.readline) {
           ++cbs
-          paths.readline.on('line', (path) => stat(_path.join(path)))
+          paths.readline.on('line', path => stat(joinPath(path)))
             .on('close', () => { if (--cbs === 0) return done() })
         }
       })
     }
-    const verify = function (devMap) {
+    const verify = devMap => {
       const SMALLS_SIZE = 1024 * 8
       return new Promise(resolve => {
         if (opts.prompt) {
           console.time('#Time: verify')
         }
         const st = {
-          hashInt: { count: 0, size: 0 },
-          hashExt: { count: 0, size: 0 }
+          hashInt: { size: 0, count: 0 },
+          hashExt: { size: 0, count: 0 }
         }
-        const done = function () {
+        const done = () => {
           hashers.stop()
           if (opts.prompt) {
-            tprintf(
+            printTable(
               ['#Stat: verify: internal', szstr(st.hashInt.size), st.hashInt.count],
               ['#Stat: verify: external', szstr(st.hashExt.size), st.hashExt.count],
               ['#Stat: verify: total   ', szstr(st.hashInt.size + st.hashExt.size), st.hashInt.count + st.hashExt.count]
@@ -333,7 +335,7 @@ if (process.argv.length < 3 || opts.help) {
         }
         const flow = { int: 0, ext: 0, n: 0 }
         const buff = Buffer.allocUnsafe(SMALLS_SIZE)
-        const hashers = new HasherManager(function (hash, _) {
+        const hashers = new HasherManager((hash, _) => {
           if (!hash.equals(HASH_FAIL)) {
             _.contentMap.getMap(hash.toString('binary')).set(_.ino, _.paths)
           }
@@ -342,46 +344,63 @@ if (process.argv.length < 3 || opts.help) {
         hashers.spawn(os.cpus().length)
         let cbs = 0
         let smallsSize = SMALLS_SIZE
-        for (const sizeMap of devMap.values()) {
-          for (const [size, exkeyMap] of sizeMap) {
-            for (const contentMap of MapDeepIterator(exkeyMap, opts.extraKeys.length)) {
-              const inoMap = contentMap.get('')
-              if (inoMap) {
-                if (inoMap.size > 1) {
-                  for (const [ino, paths] of inoMap) {
-                    if (size > smallsSize) {
-                      st.hashExt.count++
-                      st.hashExt.size += size
-                      ++cbs
-                      hashers.assign(paths[0], {contentMap, ino, paths})
-                    } else {
-                      st.hashInt.count++
-                      st.hashInt.size += size
-                      let fd
-                      try {
-                        fd = fs.openSync(paths[0], 'r')
-                        const hash = crypto.createHash(HASH_ALGORITHM)
-                        fs.readSync(fd, buff, 0, size, null)
-                        hash.update(buff.slice(0, size))
-                        contentMap.getMap(hash.digest('binary')).set(ino, paths)
-                      } catch (err) {
-                        report(err)
-                      }
-                      if (fd) {
-                        fs.close(fd, reportIf)
-                      }
-                    }
-                    flow.n++
-                    flow.ext += size
-                    smallsSize = SMALLS_SIZE * flow.ext / (flow.int + flow.ext)
-                    if (flow.n === 8) {
-                      flow.n = 4
-                      flow.int >>= 1
-                      flow.ext >>= 1
-                    }
+        const hashTasks = function * (devMap) {
+          const devTask = Array.from(devMap.values())
+            .reverse()
+            .map(function * (sizeMap) {
+              for (const [size, exkeyMap] of sizeMap) {
+                for (const contentMap of MapDeepIterator(exkeyMap, opts.extraKeys.length)) {
+                  yield [size, contentMap]
+                }
+              }
+            })
+          while (devTask.length > 0) {
+            for (let i = devTask.length - 1; i >= 0; --i) {
+              const result = devTask[i].next()
+              if (result.done) {
+                devTask.splice(i)
+              } else {
+                yield result.value
+              }
+            }
+          }
+        }
+        for (const [size, contentMap] of hashTasks(devMap)) {
+          const inoMap = contentMap.get('')
+          if (inoMap) {
+            contentMap.delete('')
+            if (inoMap.size > 1) {
+              for (const [ino, paths] of inoMap) {
+                if (size > smallsSize) {
+                  st.hashExt.count++
+                  st.hashExt.size += size
+                  ++cbs
+                  hashers.assign(paths[0], {contentMap, ino, paths})
+                } else {
+                  st.hashInt.count++
+                  st.hashInt.size += size
+                  let fd
+                  try {
+                    fd = fs.openSync(paths[0], 'r')
+                    const hash = crypto.createHash(HASH_ALGORITHM)
+                    fs.readSync(fd, buff, 0, size, null)
+                    hash.update(buff.slice(0, size))
+                    contentMap.getMap(hash.digest('binary')).set(ino, paths)
+                  } catch (err) {
+                    report(err)
+                  }
+                  if (fd) {
+                    fs.close(fd, reportIf)
                   }
                 }
-                contentMap.delete('')
+                flow.n++
+                flow.ext += size
+                smallsSize = SMALLS_SIZE * flow.ext / (flow.int + flow.ext)
+                if (flow.n === 8) {
+                  flow.n = 4
+                  flow.int >>= 1
+                  flow.ext >>= 1
+                }
               }
             }
           }
@@ -389,7 +408,7 @@ if (process.argv.length < 3 || opts.help) {
         if (cbs === 0) return done()
       })
     }
-    const solve = function (devMap) {
+    const solve = devMap => {
       if (opts.prompt) {
         console.time('#Time: solve')
       }
@@ -424,7 +443,7 @@ if (process.argv.length < 3 || opts.help) {
       }
       return solutions
     }
-    const execute = function (solutions) {
+    const execute = solutions => {
       if (opts.prompt) {
         console.time('#Time: execute')
       }
@@ -462,7 +481,7 @@ if (process.argv.length < 3 || opts.help) {
       }
       if (opts.prompt) {
         console.timeEnd('#Time: execute')
-        tprintf(
+        printTable(
           ['#Result: TODO:', szstr(st.todo.size), st.todo.src, st.todo.dst],
           ['#Result: DONE:', szstr(st.succ.size), st.succ.src, st.succ.dst],
           ['#Result: FAIL:', szstr(st.fail.size), st.fail.src, st.fail.dst]
@@ -476,7 +495,7 @@ if (process.argv.length < 3 || opts.help) {
         const filter = {}
         try {
           { const filters = opts.fileFilters.map(eval)
-            filter.file = function (stats, path) {
+            filter.file = (stats, path) => {
               try {
                 for (const filter of filters) {
                   if (!filter(stats, path)) {
@@ -492,7 +511,7 @@ if (process.argv.length < 3 || opts.help) {
             }
           }
           { const filters = opts.dirFilters.map(eval)
-            filter.dir = function (stats, path, files) {
+            filter.dir = (stats, path, files) => {
               try {
                 for (const filter of filters) {
                   if (!filter(stats, path, files)) {
@@ -517,7 +536,7 @@ if (process.argv.length < 3 || opts.help) {
       exkeys: (function compileExtraKeys () {
         try {
           const calculator = opts.extraKeys.map(eval)
-          return function (stats, path) {
+          return (stats, path) => {
             try {
               return calculator.map(calc => calc(stats, path))
             } catch (err) {
