@@ -403,19 +403,22 @@ if (process.argv.length < 3 || opts.help) {
               if (inoMap.size > 1) {
                 let majorNum = 0
                 let majorIno
-                const dsts = []
                 for (const [ino, paths] of inoMap) {
                   if (majorNum < paths.length) {
                     majorNum = paths.length
                     majorIno = ino
                   }
                 }
+                let src
+                let dsts = []
                 for (const [ino, paths] of inoMap) {
-                  if (ino !== majorIno) {
+                  if (ino === majorIno) {
+                    src = paths[0]
+                  } else {
                     dsts.push(...paths)
                   }
                 }
-                solutions.push([size, inoMap.get(majorIno)[0], dsts])
+                solutions.push([size, src, dsts])
               }
             }
           }
