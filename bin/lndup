@@ -309,6 +309,7 @@ if (process.argv.length < 3 || opts.help) {
           paths.readline.on('line', path => stat(joinPath(path)))
             .on('close', () => { if (--cbs === 0) return done() })
         }
+        if (cbs === 0) return done()
       })
     }
     const verify = devMap => {
