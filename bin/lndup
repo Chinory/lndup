@@ -349,6 +349,7 @@ if (process.argv.length < 3 || opts.help) {
             for (const contentMap of MapDeepIterator(exkeyMap, opts.extraKeys.length)) {
               const inoMap = contentMap.get('')
               if (inoMap) {
+                contentMap.delete('')
                 if (inoMap.size > 1) {
                   for (const [ino, paths] of inoMap) {
                     if (size > smallsSize) {
@@ -383,7 +384,6 @@ if (process.argv.length < 3 || opts.help) {
                     }
                   }
                 }
-                contentMap.delete('')
               }
             }
           }
