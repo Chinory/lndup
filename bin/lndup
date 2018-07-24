@@ -344,63 +344,46 @@ if (process.argv.length < 3 || opts.help) {
         hashers.spawn(os.cpus().length)
         let cbs = 0
         let smallsSize = SMALLS_SIZE
-        const hashTasks = function * (devMap) {
-          const devTask = Array.from(devMap.values())
-            .reverse()
-            .map(function * (sizeMap) {
-              for (const [size, exkeyMap] of sizeMap) {
-                for (const contentMap of MapDeepIterator(exkeyMap, opts.extraKeys.length)) {
-                  yield [size, contentMap]
-                }
-              }
-            })
-          while (devTask.length > 0) {
-            for (let i = devTask.length - 1; i >= 0; --i) {
-              const result = devTask[i].next()
-              if (result.done) {
-                devTask.splice(i)
-              } else {
-                yield result.value
-              }
-            }
-          }
-        }
-        for (const [size, contentMap] of hashTasks(devMap)) {
-          const inoMap = contentMap.get('')
-          if (inoMap) {
-            contentMap.delete('')
-            if (inoMap.size > 1) {
-              for (const [ino, paths] of inoMap) {
-                if (size > smallsSize) {
-                  st.hashExt.count++
-                  st.hashExt.size += size
-                  ++cbs
-                  hashers.assign(paths[0], {contentMap, ino, paths})
-                } else {
-                  st.hashInt.count++
-                  st.hashInt.size += size
-                  let fd
-                  try {
-                    fd = fs.openSync(paths[0], 'r')
-                    const hash = crypto.createHash(HASH_ALGORITHM)
-                    fs.readSync(fd, buff, 0, size, null)
-                    hash.update(buff.slice(0, size))
-                    contentMap.getMap(hash.digest('binary')).set(ino, paths)
-                  } catch (err) {
-                    report(err)
-                  }
-                  if (fd) {
-                    fs.close(fd, reportIf)
+        for (const sizeMap of devMap.values()) {
+          for (const [size, exkeyMap] of sizeMap) {
+            for (const contentMap of MapDeepIterator(exkeyMap, opts.extraKeys.length)) {
+              const inoMap = contentMap.get('')
+              if (inoMap) {
+                if (inoMap.size > 1) {
+                  for (const [ino, paths] of inoMap) {
+                    if (size > smallsSize) {
+                      st.hashExt.count++
+                      st.hashExt.size += size
+                      ++cbs
+                      hashers.assign(paths[0], {contentMap, ino, paths})
+                    } else {
+                      st.hashInt.count++
+                      st.hashInt.size += size
+                      let fd
+                      try {
+                        fd = fs.openSync(paths[0], 'r')
+                        const hash = crypto.createHash(HASH_ALGORITHM)
+                        fs.readSync(fd, buff, 0, size, null)
+                        hash.update(buff.slice(0, size))
+                        contentMap.getMap(hash.digest('binary')).set(ino, paths)
+                      } catch (err) {
+                        report(err)
+                      }
+                      if (fd) {
+                        fs.close(fd, reportIf)
+                      }
+                    }
+                    flow.n++
+                    flow.ext += size
+                    smallsSize = SMALLS_SIZE * flow.ext / (flow.int + flow.ext)
+                    if (flow.n === 8) {
+                      flow.n = 4
+                      flow.int >>= 1
+                      flow.ext >>= 1
+                    }
                   }
                 }
-                flow.n++
-                flow.ext += size
-                smallsSize = SMALLS_SIZE * flow.ext / (flow.int + flow.ext)
-                if (flow.n === 8) {
-                  flow.n = 4
-                  flow.int >>= 1
-                  flow.ext >>= 1
-                }
+                contentMap.delete('')
               }
             }
           }
