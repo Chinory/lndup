@@ -48,7 +48,7 @@ if (process.argv.length < 3 || opts.help) {
   console.log('')
   console.log('See <https://github.com/chinory/lndup>')
 } else if (opts.version) {
-  console.log('lndup v1.2.3')
+  console.log('lndup v1.2.4')
 } else {
   const HASH_ALGORITHM = 'sha1'
   const HASH_LENGTH = 20
@@ -396,6 +396,9 @@ if (process.argv.length < 3 || opts.help) {
       if (opts.prompt) {
         console.time('#Time: solve')
       }
+      const st = {
+        size: 0, count: 0
+      }
       const solutions = []
       for (const sizeMap of devMap.values()) {
         for (const [size, exkeyMap] of sizeMap) {
@@ -420,12 +423,15 @@ if (process.argv.length < 3 || opts.help) {
                   }
                 }
                 solutions.push([size, src, dsts])
+                st.count += dsts.length + 1
+                st.size += size * (dsts.length + 1)
               }
             }
           }
         }
       }
       if (opts.prompt) {
+        console.log(`#Stat: solve: current  ${szstr(st.size)}  ${st.count}`)
         console.timeEnd('#Time: solve')
       }
       return solutions
@@ -467,12 +473,12 @@ if (process.argv.length < 3 || opts.help) {
         st.fail.src += fail
       }
       if (opts.prompt) {
-        console.timeEnd('#Time: execute')
         printTable(
-          ['#Result: TODO:', szstr(st.todo.size), st.todo.src, st.todo.dst],
-          ['#Result: DONE:', szstr(st.succ.size), st.succ.src, st.succ.dst],
-          ['#Result: FAIL:', szstr(st.fail.size), st.fail.src, st.fail.dst]
+          ['#Stat: execute: todo', szstr(st.todo.size), st.todo.src, st.todo.dst],
+          ['#Stat: execute: done', szstr(st.succ.size), st.succ.src, st.succ.dst],
+          ['#Stat: execute: fail', szstr(st.fail.size), st.fail.src, st.fail.dst]
         )
+        console.timeEnd('#Time: execute')
       }
     }
     probe({

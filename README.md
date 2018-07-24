@@ -55,16 +55,17 @@ $ lndup -v .
 #Stat: verify: external  144.00MiB  9
 #Stat: verify: total     144.00MiB  9
 #Time: verify: 183.209ms
+#Stat: solve: current  112.00MiB  7
 #Time: solve: 0.110ms
 ln -f -- '16M/null_2' '16M/null_3'
 ln -f -- '16M/null_2' '16M/null_1'
 ln -f -- '16M/ran1_1' '16M/ran1_2'
 ln -f -- 'root/ran4_1' 'root/ran4_2'
 ln -f -- 'root/ran4_1' 'root/ran4_2' #Error: EACCES: permission denied, rename 'root/ran4_2' -> 'root/ran4_2.e8c70ebe0635ab41'
+#Stat: execute: todo  64.00MiB  3  4
+#Stat: execute: done  48.00MiB  2  3
+#Stat: execute: fail  16.00MiB  1  1
 #Time: execute: 8.331ms
-#Result: TODO:  64.00MiB  3  4
-#Result: DONE:  48.00MiB  2  3
-#Result: FAIL:  16.00MiB  1  1
 ```
 
 ### Customize filter & key
