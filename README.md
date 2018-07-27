@@ -33,6 +33,8 @@ Options:
   -k, --key  <function>  add a key to distinguish files:
           (stats: fs.Stats, path: string): any
 
+      --hash <algorithm>  select a digest algorithm, default: sha1
+
   -h, --help     display this help and exit
       --version  output version information and exit
 

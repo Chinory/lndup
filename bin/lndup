@@ -12,6 +12,7 @@ const opts = (() => {
     fileFilters: { def: [], set: ['f', 'filter-file'] },
     dirFilters: { def: [], set: ['d', 'filter-dir'] },
     extraKeys: { def: [], set: ['k', 'key'] },
+    hash: { def: 'sha1', set: ['hash'] },
     help: { def: false, set: ['h', 'help'] },
     version: { def: false, set: ['version'] },
     hasher: { def: false, set: ['hasher'] }
@@ -43,24 +44,33 @@ if (process.argv.length < 3 || opts.help) {
   console.log('  -k, --key  <function>  add a key to distinguish files:')
   console.log('          (stats: fs.Stats, path: string): any')
   console.log('')
+  console.log('      --hash <algorithm>  select a digest algorithm, default: sha1')
+  console.log('')
   console.log('  -h, --help     display this help and exit')
   console.log('      --version  output version information and exit')
   console.log('')
   console.log('See <https://github.com/chinory/lndup>')
 } else if (opts.version) {
-  console.log('lndup v1.2.4')
+  console.log('lndup v1.2.5')
 } else {
-  const HASH_ALGORITHM = 'sha1'
-  const HASH_LENGTH = 20
+  const fs = require('fs')
+  const crypto = require('crypto')
+  const readline = require('readline')
+  const HASH_ALGORITHM = opts.hash
+  const HASH_LENGTH = (() => {
+    try {
+      return crypto.createHash(HASH_ALGORITHM).digest().length
+    } catch (err) {
+      console.error(`${BASENAME}: ${err.message} -- ${HASH_ALGORITHM}`)
+      console.error(`Try 'openssl list -digest-algorithms' for available digest algorithms.`)
+      process.exit(1)
+    }
+  })()
   const HASH_FAIL = Buffer.alloc(HASH_LENGTH)
   if (opts.hasher) {
     const noop = () => {}
-    const fs = require('fs')
-    const { createHash } = require('crypto')
-    const { createInterface } = require('readline')
-    const BUFSIZE = 1024 ** 2 * 16
-    const buff = Buffer.allocUnsafe(BUFSIZE)
-    createInterface({input: process.stdin})
+    const buff = Buffer.allocUnsafe(4194304)
+    readline.createInterface({input: process.stdin})
       .on('line', line => {
         if (line.length === 0) {
           process.exit()
@@ -69,11 +79,11 @@ if (process.argv.length < 3 || opts.help) {
         try {
           fd = fs.openSync(line, 'r')
           let len = fs.fstatSync(fd).size
-          const hasher = createHash(HASH_ALGORITHM)
-          while (len > BUFSIZE) {
-            fs.readSync(fd, buff, 0, BUFSIZE, null)
+          const hasher = crypto.createHash(HASH_ALGORITHM)
+          while (len > 4194304) {
+            fs.readSync(fd, buff, 0, 4194304, null)
             hasher.update(buff)
-            len -= BUFSIZE
+            len -= 4194304
           }
           fs.readSync(fd, buff, 0, len, null)
           hasher.update(buff.slice(0, len))
@@ -91,9 +101,6 @@ if (process.argv.length < 3 || opts.help) {
       })
   } else {
     const os = require('os')
-    const fs = require('fs')
-    const crypto = require('crypto')
-    const readline = require('readline')
     const childProcess = require('child_process')
 
     const SIZE_UNIT = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
@@ -140,7 +147,7 @@ if (process.argv.length < 3 || opts.help) {
           const cary = []
           const proc = childProcess.spawn(
             process.argv0,
-            [process.argv[1], '--hasher'],
+            [process.argv[1], '--hasher', '--hash', HASH_ALGORITHM],
             {windowsHide: true}
           )
           proc.stdout.on('readable', () => {
