@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict'
-const { basename, join: joinPath } = require('path')
-const BASENAME = basename(process.argv[1])
+const _path = require('path')
+const BASENAME = _path.basename(process.argv[1])
 const opts = (() => {
   const parse = require('pargv-lite')
   const options = {
@@ -51,7 +51,7 @@ if (process.argv.length < 3 || opts.help) {
   console.log('')
   console.log('See <https://github.com/chinory/lndup>')
 } else if (opts.version) {
-  console.log('lndup v1.2.5')
+  console.log('lndup v1.2.6')
 } else {
   const fs = require('fs')
   const crypto = require('crypto')
@@ -136,32 +136,32 @@ if (process.argv.length < 3 || opts.help) {
     }
 
     class HasherManager {
-      constructor (callback) {
-        this.callback = callback
-        this.carryings = []
+      constructor (n) {
+        this.callbacks = []
         this.processes = []
         this.cur = 0
+        if (n) this.spawn(n)
       }
       spawn (n) {
         while (n-- > 0) {
-          const cary = []
+          const queue = []
           const proc = childProcess.spawn(
             process.argv0,
             [process.argv[1], '--hasher', '--hash', HASH_ALGORITHM],
             {windowsHide: true}
           )
+          proc.stderr.on('data', HasherManager._writeStderr)
           proc.stdout.on('readable', () => {
             for (let buff; (buff = proc.stdout.read(HASH_LENGTH)) !== null;) {
-              this.callback(buff, cary.shift())
+              queue.shift()(buff)
             }
           })
-          proc.stderr.on('data', HasherManager.stderr)
           this.processes.push(proc)
-          this.carryings.push(cary)
+          this.callbacks.push(queue)
         }
       }
-      assign (path, carrying) {
-        this.carryings[this.cur].push(carrying)
+      assign (path, callback) {
+        this.callbacks[this.cur].push(callback)
         this.processes[this.cur].stdin.write(path + '\n')
         if (++this.cur >= this.processes.length) this.cur = 0
       }
@@ -170,10 +170,10 @@ if (process.argv.length < 3 || opts.help) {
           proc.stdin.write('\n')
         }
         this.processes.length = 0
-        this.carryings.length = 0
+        this.callbacks.length = 0
       }
-      static stderr (chunk) {
-        return process.stderr.write(chunk)
+      static _writeStderr (chunk) {
+        process.stderr.write(chunk)
       }
     }
 
@@ -202,7 +202,7 @@ if (process.argv.length < 3 || opts.help) {
         if (this.has(key)) {
           return this.get(key)
         } else {
-          let value = []
+          const value = []
           this.set(key, value)
           return value
         }
@@ -211,7 +211,7 @@ if (process.argv.length < 3 || opts.help) {
         if (this.has(key)) {
           return this.get(key)
         } else {
-          let value = new DefaultMap()
+          const value = new DefaultMap()
           this.set(key, value)
           return value
         }
@@ -258,33 +258,16 @@ if (process.argv.length < 3 || opts.help) {
         }
         const devMap = new DefaultMap()
         const pathState = new Map()
-        const readdir = (path, stats) => {
-          ++cbs
-          return fs.readdir(path, (err, files) => {
-            --cbs
-            st.readdir.count++
-            if (err) {
-              report(err)
-            } else if (paths.filter.dir(stats, path, files)) {
-              for (const name of files) {
-                const pathname = joinPath(path, name)
-                st.readdir.size += Buffer.byteLength(pathname)
-                stat(pathname)
-              }
-            }
-            if (cbs === 0) return done()
-          })
-        }
         const stat = path => {
           if (!pathState.has(path)) {
             pathState.set(path, false)
             ++cbs
             return fs.lstat(path, (err, stats) => {
               --cbs
-              st.stat.count++
               if (err) {
                 report(err)
               } else {
+                st.stat.count++
                 st.stat.size += stats.size
                 if (pathState.get(path) === false) {
                   pathState.set(path, true)
@@ -305,15 +288,32 @@ if (process.argv.length < 3 || opts.help) {
             })
           }
         }
+        const readdir = (path, stats) => {
+          ++cbs
+          return fs.readdir(path, (err, files) => {
+            --cbs
+            if (err) {
+              report(err)
+            } else if (paths.filter.dir(stats, path, files)) {
+              st.readdir.count++
+              for (const name of files) {
+                const pathname = _path.join(path, name)
+                st.readdir.size += Buffer.byteLength(pathname)
+                stat(pathname)
+              }
+            }
+            if (cbs === 0) return done()
+          })
+        }
         let cbs = 0
         if (paths.array) {
           for (const path of paths.array) {
-            stat(joinPath(path))
+            stat(_path.join(path))
           }
         }
         if (paths.readline) {
           ++cbs
-          paths.readline.on('line', path => stat(joinPath(path)))
+          paths.readline.on('line', path => stat(_path.join(path)))
             .on('close', () => { if (--cbs === 0) return done() })
         }
         if (cbs === 0) return done()
@@ -341,13 +341,7 @@ if (process.argv.length < 3 || opts.help) {
           return resolve(devMap)
         }
         const buff = Buffer.allocUnsafe(4096)
-        const hashers = new HasherManager((hash, _) => {
-          if (!hash.equals(HASH_FAIL)) {
-            _.contentMap.getMap(hash.toString('binary')).set(_.ino, _.paths)
-          }
-          if (--cbs === 0) return done()
-        })
-        hashers.spawn(os.cpus().length)
+        const hashers = new HasherManager(os.cpus().length)
         let cbs = 0
         for (const sizeMap of devMap.values()) {
           for (const [size, exkeyMap] of sizeMap) {
@@ -361,7 +355,12 @@ if (process.argv.length < 3 || opts.help) {
                       st.hashExt.count++
                       st.hashExt.size += size
                       ++cbs
-                      hashers.assign(paths[0], {contentMap, ino, paths})
+                      hashers.assign(paths[0], hash => {
+                        if (!hash.equals(HASH_FAIL)) {
+                          contentMap.getMap(hash.toString('binary')).set(ino, paths)
+                        }
+                        if (--cbs === 0) return done()
+                      })
                     } else {
                       st.hashInt.count++
                       st.hashInt.size += size
@@ -392,9 +391,7 @@ if (process.argv.length < 3 || opts.help) {
       if (opts.prompt) {
         console.time('#Time: solve')
       }
-      const st = {
-        size: 0, count: 0
-      }
+      const st = { size: 0, count: 0 }
       const solutions = []
       for (const sizeMap of devMap.values()) {
         for (const [size, exkeyMap] of sizeMap) {
