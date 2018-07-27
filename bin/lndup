@@ -51,7 +51,7 @@ if (process.argv.length < 3 || opts.help) {
   console.log('')
   console.log('See <https://github.com/chinory/lndup>')
 } else if (opts.version) {
-  console.log('lndup v1.2.6')
+  console.log('lndup v1.2.7')
 } else {
   const fs = require('fs')
   const crypto = require('crypto')
