@@ -1,6 +1,6 @@
 {
   "name": "lndup",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "description": "Hardlink duplicate files.",
   "author": "Chinory",
   "homepage": "https://github.com/chinory/lndup#readme",

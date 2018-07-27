@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict'
-const _path = require('path')
-const BASENAME = _path.basename(process.argv[1])
+const path = require('path')
+const BASENAME = path.basename(process.argv[1])
 const opts = (() => {
   const parse = require('pargv-lite')
   const options = {
@@ -51,7 +51,7 @@ if (process.argv.length < 3 || opts.help) {
   console.log('')
   console.log('See <https://github.com/chinory/lndup>')
 } else if (opts.version) {
-  console.log('lndup v1.2.7')
+  console.log('lndup v1.2.8')
 } else {
   const fs = require('fs')
   const crypto = require('crypto')
@@ -66,10 +66,10 @@ if (process.argv.length < 3 || opts.help) {
       process.exit(1)
     }
   })()
-  const HASH_FAIL = Buffer.alloc(HASH_LENGTH)
   if (opts.hasher) {
     const noop = () => {}
     const buff = Buffer.allocUnsafe(4194304)
+    const HASH_FAIL = Buffer.alloc(HASH_LENGTH)
     readline.createInterface({input: process.stdin})
       .on('line', line => {
         if (line.length === 0) {
@@ -101,7 +101,7 @@ if (process.argv.length < 3 || opts.help) {
       })
   } else {
     const os = require('os')
-    const childProcess = require('child_process')
+    const child_process = require('child_process')
 
     const SIZE_UNIT = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
     const szstr = size => {
@@ -145,7 +145,7 @@ if (process.argv.length < 3 || opts.help) {
       spawn (n) {
         while (n-- > 0) {
           const queue = []
-          const proc = childProcess.spawn(
+          const proc = child_process.spawn(
             process.argv0,
             [process.argv[1], '--hasher', '--hash', HASH_ALGORITHM],
             {windowsHide: true}
@@ -235,6 +235,10 @@ if (process.argv.length < 3 || opts.help) {
       }
     }
 
+    const evalHere = x => {
+      return eval(x)
+    }
+
     const probe = paths => {
       return new Promise(resolve => {
         if (opts.prompt) {
@@ -258,29 +262,29 @@ if (process.argv.length < 3 || opts.help) {
         }
         const devMap = new DefaultMap()
         const pathState = new Map()
-        const stat = path => {
-          if (!pathState.has(path)) {
-            pathState.set(path, false)
+        const stat = _path => {
+          if (!pathState.has(_path)) {
+            pathState.set(_path, false)
             ++cbs
-            return fs.lstat(path, (err, stats) => {
+            return fs.lstat(_path, (err, stats) => {
               --cbs
               if (err) {
                 report(err)
               } else {
                 st.stat.count++
                 st.stat.size += stats.size
-                if (pathState.get(path) === false) {
-                  pathState.set(path, true)
+                if (pathState.get(_path) === false) {
+                  pathState.set(_path, true)
                   if (stats.isDirectory()) {
-                    return readdir(path, stats)
-                  } else if (stats.isFile() && stats.size > 0 && paths.filter.file(stats, path)) {
+                    return readdir(_path, stats)
+                  } else if (stats.isFile() && stats.size > 0 && paths.filter.file(stats, _path)) {
                     st.select.count++
                     st.select.size += stats.size
                     let map = devMap.getMap(stats.dev).getMap(stats.size)
-                    for (const key of paths.exkeys(stats, path)) {
+                    for (const key of paths.exkeys(stats, _path)) {
                       map = map.getMap(key)
                     }
-                    map.getMap('').getArray(stats.ino).push(path)
+                    map.getMap('').getArray(stats.ino).push(_path)
                   }
                 }
               }
@@ -288,16 +292,16 @@ if (process.argv.length < 3 || opts.help) {
             })
           }
         }
-        const readdir = (path, stats) => {
+        const readdir = (_path, stats) => {
           ++cbs
-          return fs.readdir(path, (err, files) => {
+          return fs.readdir(_path, (err, files) => {
             --cbs
             if (err) {
               report(err)
-            } else if (paths.filter.dir(stats, path, files)) {
+            } else if (paths.filter.dir(stats, _path, files)) {
               st.readdir.count++
               for (const name of files) {
-                const pathname = _path.join(path, name)
+                const pathname = path.join(_path, name)
                 st.readdir.size += Buffer.byteLength(pathname)
                 stat(pathname)
               }
@@ -307,13 +311,13 @@ if (process.argv.length < 3 || opts.help) {
         }
         let cbs = 0
         if (paths.array) {
-          for (const path of paths.array) {
-            stat(_path.join(path))
+          for (const _path of paths.array) {
+            stat(path.join(_path))
           }
         }
         if (paths.readline) {
           ++cbs
-          paths.readline.on('line', path => stat(_path.join(path)))
+          paths.readline.on('line', path => stat(path.join(path)))
             .on('close', () => { if (--cbs === 0) return done() })
         }
         if (cbs === 0) return done()
@@ -341,6 +345,7 @@ if (process.argv.length < 3 || opts.help) {
           return resolve(devMap)
         }
         const buff = Buffer.allocUnsafe(4096)
+        const HASH_FAIL = Buffer.alloc(HASH_LENGTH)
         const hashers = new HasherManager(os.cpus().length)
         let cbs = 0
         for (const sizeMap of devMap.values()) {
@@ -480,7 +485,7 @@ if (process.argv.length < 3 || opts.help) {
       filter: (function compileFilters () {
         const filter = {}
         try {
-          { const filters = opts.fileFilters.map(eval)
+          { const filters = opts.fileFilters.map(evalHere)
             filter.file = (stats, path) => {
               try {
                 for (const filter of filters) {
@@ -496,7 +501,7 @@ if (process.argv.length < 3 || opts.help) {
               return true
             }
           }
-          { const filters = opts.dirFilters.map(eval)
+          { const filters = opts.dirFilters.map(evalHere)
             filter.dir = (stats, path, files) => {
               try {
                 for (const filter of filters) {
@@ -521,7 +526,7 @@ if (process.argv.length < 3 || opts.help) {
       })(),
       exkeys: (function compileExtraKeys () {
         try {
-          const calculator = opts.extraKeys.map(eval)
+          const calculator = opts.extraKeys.map(evalHere)
           return (stats, path) => {
             try {
               return calculator.map(calc => calc(stats, path))
