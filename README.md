@@ -16,27 +16,25 @@ $ npm i -g lndup
 ## Usage
 
 ```
-Usage: lndup [options] [paths]
+Usage: lndup [OPTION]... [PATH]...
 Hardlink duplicate files.
 
-Options:
   -n, --dry-run  don't link
   -v, --verbose  explain what is being done
   -q, --quiet    don't output extra information
   -i, --stdin    read more paths from stdin
 
-  -f, --filter-file <function>  add a file filter:
-          (stats: fs.Stats, path: string): boolean
-  -d, --filter-dir  <function>  add a directory filter:
-          (stats: fs.Stats, path: string, files: string[]): boolean
-
-  -k, --key  <function>  add a key to distinguish files:
-          (stats: fs.Stats, path: string): any
-
-      --hash <algorithm>  select a digest algorithm, default: sha1
+  -f, --file     add a file filter
+                 (stats: fs.Stats, path: string): boolean
+  -d, --dir      add a directory filter
+                 (stats: fs.Stats, path: string, files: string[]): boolean
+  -k, --key      add a key to differentiate files
+                 (stats: fs.Stats, path: string): any
+  -H, --hash     select a digest algorithm, default: sha1
+                 run 'openssl list -digest-algorithms' for available algorithms.
 
   -h, --help     display this help and exit
-      --version  output version information and exit
+  -V, --version  output version information and exit
 
 See <https://github.com/chinory/lndup>
 ```

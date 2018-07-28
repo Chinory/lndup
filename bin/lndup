@@ -9,12 +9,12 @@ const opts = (() => {
     verbose: { def: false, set: ['v', 'verbose'] },
     prompt: { def: true, set: ['q', 'quiet'] },
     stdin: { def: false, set: ['i', 'stdin'] },
-    fileFilters: { def: [], set: ['f', 'filter-file'] },
-    dirFilters: { def: [], set: ['d', 'filter-dir'] },
+    fileFilters: { def: [], set: ['f', 'file'] },
+    dirFilters: { def: [], set: ['d', 'dir'] },
     extraKeys: { def: [], set: ['k', 'key'] },
-    hash: { def: 'sha1', set: ['hash'] },
+    hash: { def: 'sha1', set: ['H', 'hash'] },
     help: { def: false, set: ['h', 'help'] },
-    version: { def: false, set: ['version'] },
+    version: { def: false, set: ['V', 'version'] },
     hasher: { def: false, set: ['hasher'] }
   }
   try {
@@ -25,33 +25,30 @@ const opts = (() => {
     process.exit(1)
   }
 })()
-
-if (process.argv.length < 3 || opts.help) {
-  console.log(`Usage: ${BASENAME} [options] [paths]`)
+if (opts.version) {
+  console.log('lndup v1.2.8')
+} else if (process.argv.length < 3 || opts.help) {
+  console.log(`Usage: ${BASENAME} [OPTION]... [PATH]...`)
   console.log('Hardlink duplicate files.')
   console.log('')
-  console.log('Options:')
   console.log('  -n, --dry-run  don\'t link')
   console.log('  -v, --verbose  explain what is being done')
   console.log('  -q, --quiet    don\'t output extra information')
   console.log('  -i, --stdin    read more paths from stdin')
   console.log('')
-  console.log('  -f, --filter-file <function>  add a file filter:')
-  console.log('          (stats: fs.Stats, path: string): boolean')
-  console.log('  -d, --filter-dir  <function>  add a directory filter:')
-  console.log('          (stats: fs.Stats, path: string, files: string[]): boolean')
-  console.log('')
-  console.log('  -k, --key  <function>  add a key to distinguish files:')
-  console.log('          (stats: fs.Stats, path: string): any')
-  console.log('')
-  console.log('      --hash <algorithm>  select a digest algorithm, default: sha1')
+  console.log('  -f, --file     add a file filter')
+  console.log('                 (stats: fs.Stats, path: string): boolean')
+  console.log('  -d, --dir      add a directory filter')
+  console.log('                 (stats: fs.Stats, path: string, files: string[]): boolean')
+  console.log('  -k, --key      add a key to differentiate files')
+  console.log('                 (stats: fs.Stats, path: string): any')
+  console.log('  -H, --hash     select a digest algorithm, default: sha1')
+  console.log("                 run 'openssl list -digest-algorithms' for available algorithms.")
   console.log('')
   console.log('  -h, --help     display this help and exit')
-  console.log('      --version  output version information and exit')
+  console.log('  -V, --version  output version information and exit')
   console.log('')
   console.log('See <https://github.com/chinory/lndup>')
-} else if (opts.version) {
-  console.log('lndup v1.2.8')
 } else {
   const fs = require('fs')
   const crypto = require('crypto')
