@@ -26,7 +26,7 @@ const opts = (() => {
   }
 })()
 if (opts.version) {
-  console.log('lndup v1.2.8')
+  console.log('lndup v1.2.9')
 } else if (process.argv.length < 3 || opts.help) {
   console.log(`Usage: ${BASENAME} [OPTION]... [PATH]...`)
   console.log('Hardlink duplicate files.')
@@ -98,6 +98,7 @@ if (opts.version) {
       })
   } else {
     const os = require('os')
+    const util = require('util')
     const child_process = require('child_process')
 
     const SIZE_UNIT = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
@@ -224,7 +225,7 @@ if (opts.version) {
         const result = stack[stack.length - 1].next()
         if (result.done) {
           stack.pop()
-        } else if (stack.length < maxDepth && result.value instanceof Map) {
+        } else if (stack.length < maxDepth && util.types.isMap(result.value)) {
           stack.push(result.value.values())
         } else {
           yield result.value

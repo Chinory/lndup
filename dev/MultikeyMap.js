@@ -1,4 +1,5 @@
 'use strict'
+const util = require('util')
 class MultikeyMap {
   set (keys, value) {
     if (keys.length > 0) {
@@ -46,7 +47,7 @@ class MultikeyMap {
         const result = stack[stack.length - 1].next()
         if (result.done) {
           stack.pop()
-        } else if (result.value instanceof Map) {
+        } else if (util.types.isMap(result.value)) {
           stack.push(result.value.values())
         } else {
           yield result.value

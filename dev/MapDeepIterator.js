@@ -1,4 +1,5 @@
 'use strict'
+const util = require('util')
 function * MapDeepIterator (map, maxDepth) {
   if (maxDepth < 1) {
     yield map
@@ -8,7 +9,7 @@ function * MapDeepIterator (map, maxDepth) {
     const result = stack[stack.length - 1].next()
     if (result.done) {
       stack.pop()
-    } else if (stack.length < maxDepth && result.value instanceof Map) {
+    } else if (stack.length < maxDepth && util.types.isMap(result.value)) {
       stack.push(result.value.values())
     } else {
       yield result.value
