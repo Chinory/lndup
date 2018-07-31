@@ -26,7 +26,7 @@ const opts = (() => {
   }
 })()
 if (opts.version) {
-  console.log('lndup v1.2.9')
+  console.log('lndup v1.3.0')
 } else if (process.argv.length < 3 || opts.help) {
   console.log(`Usage: ${BASENAME} [OPTION]... [PATH]...`)
   console.log('Hardlink duplicate files.')
@@ -100,6 +100,7 @@ if (opts.version) {
     const os = require('os')
     const util = require('util')
     const child_process = require('child_process')
+    const shellescape = require('shell-escape')
 
     const SIZE_UNIT = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
     const szstr = size => {
@@ -184,14 +185,14 @@ if (opts.version) {
         try {
           fs.renameSync(sav, dst)
         } catch (err) {
-          console.error(`mv -f -- '${sav}' '${dst}' #${err}`)
+          console.log(shellescape(['mv', '-f', '--', sav, dst]) + ' #' + err)
         }
         throw err
       }
       try {
         fs.unlinkSync(sav)
       } catch (err) {
-        console.error(`rm -f -- '${sav}' #${err}`)
+        console.error(shellescape(['rm', '-f', '--', sav]) + ' #' + err)
       }
     }
 
@@ -446,7 +447,7 @@ if (opts.version) {
         let fail = 0
         for (const dst of dsts) {
           if (opts.verbose) {
-            console.log(`ln -f -- '${src}' '${dst}'`)
+            console.log(shellescape(['ln', '-f', '--', src, dst]))
           }
           if (opts.action) {
             try {
@@ -455,7 +456,7 @@ if (opts.version) {
               st.succ.dst++
               st.succ.size += size
             } catch (err) {
-              console.error(`ln -f -- '${src}' '${dst}' #${err}`)
+              console.log(shellescape(['ln', '-f', '--', src, dst]) + ' #' + err)
               fail = 1
               st.fail.dst++
               st.fail.size += size
