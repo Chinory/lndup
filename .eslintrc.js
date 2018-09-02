@@ -1,7 +1,36 @@
 module.exports = {
-    "extends": "standard",
+    "env": {
+        "es6": true,
+        "node": true
+    },
+    "extends": "eslint:recommended",
+    "parserOptions": {
+        "ecmaVersion": 2018,
+        "sourceType": "module"
+    },
     "rules": {
-        "no-eval": "off",
-        "camelcase": "warn"
+        "indent": [
+            "error",
+            4
+        ],
+        "linebreak-style": [
+            "error",
+            "unix"
+        ],
+        "quotes": [
+            "error",
+            "single"
+        ],
+        "semi": [
+            "error",
+            "always"
+        ],
+        "no-console": [
+            "off"
+        ],
+        "no-unused-vars": [
+            "warn",
+            { "args": "none" }
+        ]
     }
 };
