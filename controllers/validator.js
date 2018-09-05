@@ -9,7 +9,7 @@ class Validator {
      * @param {Tree} tree 
      */
     constructor (tree) {
-        this.tree = tree || new Tree();
+        this.tree = tree;
         this.stats = Validator.Stats();
         this.undone = 0;
     }

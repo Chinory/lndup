@@ -9,7 +9,7 @@ class Probe {
      * @param {Tree} tree 
      */
     constructor (tree) {
-        this.tree = tree || new Tree();
+        this.tree = tree;
         this.stats = Probe.Stats();
         this.undone = 0;
         this.visited = {};

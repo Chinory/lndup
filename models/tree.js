@@ -1,7 +1,7 @@
 class Tree {
     /**
      * constructor
-     * @param {{}} entry 
+     * @param {Entry} entry 
      */
     constructor (entry) {
         this.entry = entry;
@@ -31,6 +31,7 @@ class Tree {
 
     /**
      * get devs
+     * @returns {string[]}
      */
     devs () {
         return Object.keys(this.entry);
@@ -38,15 +39,53 @@ class Tree {
     /**
      * validations iterator, get next with true will delete the validation
      * @param {string} dev 
-     * @returns {IterableIterator<{contentNode: {}, ino: string, paths: string[], size: string}>}
+     * @returns {IterableIterator<{exkeyNode: ExkeyNode, ino: string, paths: Path[], size: string}>}
      */
     * validations (dev) {
         // TODO
+        const devNode = this.entry[dev];
+        if (!devNode) return;
+        let sizeCount = 0;
+        for (const size in devNode) {
+            ++sizeCount;
+            const sizeNode = devNode[size];
+            let exkeyCount = 0;
+            for (const exkey in sizeNode) {
+                ++exkeyCount;
+                const exkeyNode = sizeNode[exkey];
+                let digestCount = 0;
+                for (const digest in exkeyNode) {
+                    ++digestCount;
+                    if (digest !== '') continue;
+                    const digestNode = exkeyNode[digest];
+                    let inoCount = 0;
+                    for (const ino in digestNode) {
+                        ++inoCount;
+                        if (yield {exkeyNode, ino, paths: digestNode[ino], size}) {
+                            delete digestNode[ino]; --inoCount;
+                        }
+                    }
+                    if (inoCount < 2) {
+                        delete exkeyNode[digest]; --digestCount;
+                    }
+                }
+                if (digestCount === 0 && !exkeyNode['']) {
+                    delete sizeNode[exkey]; --exkeyCount;
+                }
+            }
+            if (exkeyCount === 0) {
+                delete devNode[size]; --sizeCount;
+            }
+        }
+        if (sizeCount === 0) {
+            delete this.entry[dev];
+        }   
+    
     }
     /**
      * solutions iterator, get next with true will delete the solution
      * @param {string} dev 
-     * @returns {IterableIterator<{size: string, src: string, dst: string}>}
+     * @returns {IterableIterator<{size: string, src: Path, dst: Path}>}
      */
     * solutions (dev) {
         const devNode = this.entry[dev];
@@ -61,8 +100,8 @@ class Tree {
                 const exkeyNode = sizeNode[exkey];
                 let digestCount = 0;
                 for (const digest in exkeyNode) {
-                    if (digest === '') continue;
                     ++digestCount;
+                    if (digest === '') continue;
                     // find major
                     const digestNode = exkeyNode[digest];
                     let majorIno = '';
@@ -104,7 +143,7 @@ class Tree {
                     }
                     
                 }
-                if (digestCount === 0 && !exkeyNode['']) {
+                if (digestCount === 0) {
                     delete sizeNode[exkey]; --exkeyCount;
                 }
             }

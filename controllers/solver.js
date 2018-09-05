@@ -14,7 +14,7 @@ class Solver {
      */
     constructor (tree, options) {
         if (options == null) options = {};
-        this.tree = tree || new Tree();
+        this.tree = tree;
         this.stats = Solver.Stats();
         this.undone = 0;
         this.onLink = options.quiet
@@ -66,39 +66,6 @@ class Solver {
      */
     onLink (src, dst) {
         return false;
-    }
-
-    solve () {
-        for (const dev of Object.keys(this.tree)) {
-            const solutions = this.solutions(dev);
-            const callback = err => {
-                if (err) this.onError(err);
-                const next = solutions.next();
-                if (next.done) if (!--this.undone) return this.onDone(); else return;
-                // solve
-                fs.exists();
-
-
-
-                const hash = crypto.createHash('sha1');
-                fs.createReadStream(next.value.paths[0])
-                    .on('error', callback)
-                    .pipe(hash)
-                    .on('finish', () => { 
-                        const inoNode = next.value.digestNode[hash.digest('hex')];
-                        if (inoNode[next.value.ino]) {
-                            inoNode[next.value.ino].push(...next.value.paths);
-                        } else {
-                            inoNode[next.value.ino] = next.value.paths;
-                        }
-                        this.stats.count++;
-                        this.stats.size += next.value.size;
-                        return callback(null);
-                    });
-            };
-            ++this.undone;
-            callback(null);
-        }
     }
     solveSync () {
         for (const dev of Object.keys(this.tree)) {
