@@ -4,7 +4,7 @@ const Validator  = require('./controllers/validator');
 const Solver     = require('./controllers/solver');
 
 class Suite {
-    constructor (tree) {
+    constructor (tree = new Tree()) {
         this.tree = tree;
         this._probe = new Probe(tree);
         this._validator = new Validator(tree);

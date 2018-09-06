@@ -1,3 +1,5 @@
+'use strict';
+
 class Tree {
     /**
      * constructor
@@ -42,7 +44,6 @@ class Tree {
      * @returns {IterableIterator<{exkeyNode: ExkeyNode, ino: string, paths: Path[], size: string}>}
      */
     * validations (dev) {
-        // TODO
         const devNode = this.entry[dev];
         if (!devNode) return;
         let sizeCount = 0;

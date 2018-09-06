@@ -1,0 +1,59 @@
+#!/usr/bin/env node
+'use strict';
+
+const Path = require('path');
+const BASENAME = Path.basename(process.argv[1]);
+const opts = (() => {
+    const parse = require('pargv-lite');
+    const options = {
+        action: { def: true, set: ['n', 'dry-run'] },
+        verbose: { def: false, set: ['v', 'verbose'] },
+        prompt: { def: true, set: ['q', 'quiet'] },
+        stdin: { def: false, set: ['i', 'stdin'] },
+        hash: { def: 'sha1', set: ['H', 'hash'] },
+        help: { def: false, set: ['h', 'help'] },
+        version: { def: false, set: ['V', 'version'] }
+    };
+    try {
+        return parse(process.argv.slice(2), options);
+    } catch (err) {
+        console.error(`${BASENAME}: ${err.message}`);
+        console.error(`Try '${BASENAME} --help' for more information.`);
+        process.exit(1);
+    }
+})();
+
+if (opts.version) {
+    console.log('lndup v2.0.0');
+    process.exit();
+} else if (process.argv.length < 3 || opts.help) {
+    console.log(`Usage: ${BASENAME} [OPTION]... [PATH]...`);
+    console.log('Hardlink duplicate files.');
+    console.log('');
+    console.log('  -n, --dry-run  don\'t link');
+    console.log('  -v, --verbose  explain what is being done');
+    console.log('  -q, --quiet    don\'t output extra information');
+    console.log('  -i, --stdin    read more paths from stdin');
+    console.log('');
+    console.log('  -f, --file     add a file filter');
+    console.log('                 (stats: fs.Stats, path: string): boolean');
+    console.log('  -d, --dir      add a directory filter');
+    console.log('                 (stats: fs.Stats, path: string, files: string[]): boolean');
+    console.log('  -k, --key      add a key to differentiate files');
+    console.log('                 (stats: fs.Stats, path: string): any');
+    console.log('  -H, --hash     select a digest algorithm, default: sha1');
+    console.log('                 run \'openssl list -digest-algorithms\' for available algorithms.');
+    console.log('');
+    console.log('  -h, --help     display this help and exit');
+    console.log('  -V, --version  output version information and exit');
+    console.log('');
+    console.log('See <https://github.com/chinory/lndup>');
+    process.exit();
+}
+
+const Lndup = require('..');
+
+const lndup = new Lndup.Suite();
+
+
+
