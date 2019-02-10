@@ -1,0 +1,30 @@
+#!/usr/bin/env node
+"use strict";
+const fs = require("fs"), crypto = require("crypto"), readline = require("readline"),
+    algorithm = process.argv[2] || "sha1",
+    encoding = process.argv[3] || "hex",
+    buffer = Buffer.allocUnsafe(Number(process.argv[4]) || 8388608);
+process.stdout.on("error", process.exit);
+process.stderr.on("error", process.exit);
+readline.createInterface(process.stdin).on("line", path => {
+    try { 
+        var fd = fs.openSync(path, "r");
+    } catch (err) {
+        process.stderr.write(`${err}\n`);
+        process.stdout.write("\n");
+        return;
+    }
+    try { 
+        var hash = crypto.createHash(algorithm);
+        for (;;) {
+            var readLen = fs.readSync(fd, buffer, 0, buffer.length, null);
+            if (readLen === buffer.length) hash.update(buffer);
+            else { hash.update(buffer.slice(0, readLen)); break; }
+        } 
+        process.stdout.write(`${hash.digest(encoding)}\n`);
+    } catch (err) {
+        process.stderr.write(`${path}: ${err}\n`);
+        process.stdout.write("\n");
+    }
+    fs.closeSync(fd);
+});

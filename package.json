@@ -26,6 +26,8 @@
     "lndup": "./bin/lndup"
   },
   "dependencies": {
+    "getopts": "^2.2.3",
+    "pargv-lite": "^2.0.3",
     "shell-escape": "^0.2.0"
   },
   "devDependencies": {

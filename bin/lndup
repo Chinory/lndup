@@ -1,59 +1,161 @@
 #!/usr/bin/env node
-'use strict';
+"use strict";
+const _path = require("path"), __basename = _path.basename(__filename), crypto = require("crypto");
 
-const Path = require('path');
-const BASENAME = Path.basename(process.argv[1]);
-const opts = (() => {
-    const parse = require('pargv-lite');
-    const options = {
-        action: { def: true, set: ['n', 'dry-run'] },
-        verbose: { def: false, set: ['v', 'verbose'] },
-        prompt: { def: true, set: ['q', 'quiet'] },
-        stdin: { def: false, set: ['i', 'stdin'] },
-        hash: { def: 'sha1', set: ['H', 'hash'] },
-        help: { def: false, set: ['h', 'help'] },
-        version: { def: false, set: ['V', 'version'] }
-    };
-    try {
-        return parse(process.argv.slice(2), options);
-    } catch (err) {
-        console.error(`${BASENAME}: ${err.message}`);
-        console.error(`Try '${BASENAME} --help' for more information.`);
-        process.exit(1);
-    }
-})();
-
-if (opts.version) {
-    console.log('lndup v2.0.0');
-    process.exit();
-} else if (process.argv.length < 3 || opts.help) {
-    console.log(`Usage: ${BASENAME} [OPTION]... [PATH]...`);
-    console.log('Hardlink duplicate files.');
-    console.log('');
-    console.log('  -n, --dry-run  don\'t link');
-    console.log('  -v, --verbose  explain what is being done');
-    console.log('  -q, --quiet    don\'t output extra information');
-    console.log('  -i, --stdin    read more paths from stdin');
-    console.log('');
-    console.log('  -f, --file     add a file filter');
-    console.log('                 (stats: fs.Stats, path: string): boolean');
-    console.log('  -d, --dir      add a directory filter');
-    console.log('                 (stats: fs.Stats, path: string, files: string[]): boolean');
-    console.log('  -k, --key      add a key to differentiate files');
-    console.log('                 (stats: fs.Stats, path: string): any');
-    console.log('  -H, --hash     select a digest algorithm, default: sha1');
-    console.log('                 run \'openssl list -digest-algorithms\' for available algorithms.');
-    console.log('');
-    console.log('  -h, --help     display this help and exit');
-    console.log('  -V, --version  output version information and exit');
-    console.log('');
-    console.log('See <https://github.com/chinory/lndup>');
+const opt = {};
+require("pargv-lite")(process.argv, 2, opt, "", {
+    action: { def: true, set: ["-n", "--dry-run"] },
+    verbose: { def: false, set: ["-v", "--verbose"] },
+    prompt: { def: true, set: ["-q", "--quiet"] },
+    stdin: { def: false, set: ["-i", "--stdin"] },
+    error: { def: true, set: ["--no-err"] },
+    algorithm: { def: "sha1", set: ["-H", "--hash"] },
+    paths: { def: [], set: ["--"] },
+    help: { def: false, set: ["-h", "--help"] },
+    version: { def: false, set: ["-V", "--version"] },
+}, (err, arg) => { if (!err) return;
+    console.error(`${__basename}: ${err} -- ${arg}`);
+    console.error(`Try '${__basename} --help' for more information.`);
+    process.exit(1);
+});
+if (opt.version) {
+    console.log("lndup 2.0.0");
     process.exit();
 }
+if (opt.help) {
+    console.log(`Usage: ${__basename} [OPTION]... [PATH]...`);
+    console.log("Hardlink duplicate files.");
+    console.log("");
+    console.log("  -n, --dry-run  don't link");
+    console.log("  -v, --verbose  explain what is being done");
+    console.log("  -q, --quiet    don't output extra information");
+    console.log("  -i, --stdin    read more paths from stdin");
+    console.log("  -H, --hash     set hash algorithm");
+    console.log("      --no-err   don't print error");
+    console.log("");
+    console.log("  -h, --help     display this help and exit");
+    console.log("  -V, --version  output version information and exit");
+    console.log("");
+    console.log("See <https://github.com/chinory/lndup>");
+    process.exit();
+}
+try {
+    crypto.createHash(opt.algorithm);
+} catch (err) {
+    console.error(`${__basename}: ${err.message} -- ${opt.algorithm}`);
+    console.error("Try 'openssl list -digest-algorithms' for available digest algorithms.");
+    process.exit(1);
+}
 
-const Lndup = require('..');
+const shellescape = opt.verbose ? require("shell-escape") : null;
+const lndup = require(".."), tree = {}, stats = {},
+    prober = new lndup.Prober(tree, stats),
+    hasher = new lndup.Hasher(tree, stats),
+    linker = new lndup.Linker(tree, stats);
 
-const lndup = new Lndup.Suite();
+if (opt.error) {
+    prober.onError = err => console.error(`#${err}`);
+    hasher.onError = err => console.error(`#${err}`);
+    linker.onError = (err, remedy) => {
+        console.error(`#${err}`);
+        if (remedy) console.error(`#${remedy}`);
+    };
+}
 
+const SIZE_UNIT = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
+const szstr = size => {
+    for (var i = 0; size >= 1024 && i < 8; ++i) size /= 1024;
+    return size.toFixed(i) + SIZE_UNIT[i];
+};
 
+const printTable = rows => {
+    const columnWidth = [];
+    for (const row of rows) {
+        for (let i = 0; i < row.length; ++i) {
+            while (columnWidth.length <= i) columnWidth.push(0);
+            if (columnWidth[i] < row[i].length)
+                columnWidth[i] = row[i].length;
+        }
+    }
+    const padCell = (cell, i) => cell.padStart(columnWidth[i]);
+    for (const row of rows) {
+        console.log(row.map(padCell).join("  "));
+    }
+};
 
+const mphash = new lndup.MPHash();
+
+if (opt.prompt) {
+    console.time("#Time: probe");
+}
+prober.onDone = function () {
+    if (opt.prompt) {
+        const st = prober.stats;
+        printTable([
+            ["#Stat: probe: stat   ", szstr(st.stat.size), String(st.stat.count)],
+            ["#Stat: probe: readdir", szstr(st.readdir.size), String(st.readdir.count)],
+            ["#Stat: probe: select ", szstr(st.select.size), String(st.select.count)]
+        ]);
+        console.timeEnd("#Time: probe");
+        console.time("#Time: hash");
+    }
+    mphash.open(Object.keys(tree).length * 2);
+    hasher.hash(mphash.getHash());
+};
+hasher.onDone = function () {
+    mphash.close();
+    if (opt.prompt) {
+        const st = mphash.stats;
+        printTable([
+            ["#Stat: hash: internal", szstr(st.hashInt.size), String(st.hashInt.count)],
+            ["#Stat: hash: external", szstr(st.hashExt.size), String(st.hashExt.count)],
+            ["#Stat: hash: total   ", szstr(st.hashInt.size + st.hashExt.size), String(st.hashInt.count + st.hashExt.count)]
+        ]);
+        console.timeEnd("#Time: hash");
+        console.time("#Time: link");
+    }
+    const link = opt.action ? lndup.safeLink : lndup.successFakeLink;
+    linker.link(!opt.verbose ? link : (src, dst, callback) => {
+        console.log(shellescape(["ln", "-f", "--", src, dst]));
+        return link(src, dst, callback);
+    });
+};
+linker.onDone = function () {
+    if (opt.prompt) {
+        const st = linker.stats;
+        const table = [
+            ["#Stat: link: todo", szstr(st.linkTodo.size), String(st.linkTodo.src), String(st.linkTodo.dst)]
+        ];
+        if (opt.action) table.push(
+            ["#Stat: link: done", szstr(st.linkDone.size), String(st.linkDone.src), String(st.linkDone.dst)],
+            ["#Stat: link: fail", szstr(st.linkFail.size), String(st.linkFail.src), String(st.linkFail.dst)]
+        );
+        printTable(table);
+        console.timeEnd("#Time: link");
+    }
+};
+
+prober.open();
+if (opt.stdin) {
+    const inputArgv = i => {
+        if (i < opt.paths.length) {
+            prober.probe(opt.paths[i]);
+            setImmediate(inputArgv, i + 1);
+        } else {
+            require("readline").createInterface(process.stdin)
+                .on("line", path => prober.probe(path))
+                .on("close", () => prober.close());
+        }
+    };
+    inputArgv(0);
+} else {
+    const inputArgv = i => {
+        if (i < opt.paths.length) {
+            prober.probe(opt.paths[i]);
+            setImmediate(inputArgv, i + 1);
+        } else {
+            prober.close();
+        }
+    };
+    inputArgv(0);
+}
