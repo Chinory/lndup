@@ -348,12 +348,6 @@ class MPHash {
         }
     }
     /**
-     * @returns {HasherHashFunc}
-     */
-    getHash () {
-        return (path, size, callback) => this.hash(path, size, callback);
-    }
-    /**
      * @param {string} event 
      * @param {Function} listener 
      */
@@ -444,12 +438,6 @@ class Prober {
         if (this._opened) this._stat(path, _path.basename(path), _path.resolve(path));
         if (!this._undone) this.onDone();
         return this;
-    }
-    /**
-     * @returns {(path: string) => this}
-     */
-    getProbe () {
-        return path => this.probe(path);
     }
     close () {
         if (this._opened) {
@@ -611,12 +599,6 @@ class Hasher {
         return this;
     }
     /**
-     * @param {HasherHashFunc} hash 
-     */
-    getHash (hash) {
-        return () => this.hash(hash);
-    }
-    /**
      * @param {string} event 
      * @param {Function} listener 
      */
@@ -707,12 +689,6 @@ class Linker {
         }
         if (!--this._undone) this.onDone();
         return this;
-    }
-    /**
-     * @param {SafeLinkFunc} link default = lndup.safeLink
-     */
-    getLink (link = safeLink) {
-        return () => this.link(link);
     }
     /**
      * @param {string} event 

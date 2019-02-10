@@ -100,7 +100,7 @@ prober.onDone = function () {
         console.time("#Time: hash");
     }
     mphash.open(Object.keys(tree).length * 2);
-    hasher.hash(mphash.getHash());
+    hasher.hash(mphash.hash.bind(mphash));
 };
 hasher.onDone = function () {
     mphash.close();
