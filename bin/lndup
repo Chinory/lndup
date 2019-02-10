@@ -1,34 +1,30 @@
 #!/usr/bin/env node
 'use strict'
 const path = require('path')
-const BASENAME = path.basename(process.argv[1])
-const opts = (() => {
-  const parse = require('pargv-lite')
-  const options = {
-    action: { def: true, set: ['n', 'dry-run'] },
-    verbose: { def: false, set: ['v', 'verbose'] },
-    prompt: { def: true, set: ['q', 'quiet'] },
-    stdin: { def: false, set: ['i', 'stdin'] },
-    fileFilters: { def: [], set: ['f', 'file'] },
-    dirFilters: { def: [], set: ['d', 'dir'] },
-    extraKeys: { def: [], set: ['k', 'key'] },
-    hash: { def: 'sha1', set: ['H', 'hash'] },
-    help: { def: false, set: ['h', 'help'] },
-    version: { def: false, set: ['V', 'version'] },
-    hasher: { def: false, set: ['hasher'] }
-  }
-  try {
-    return parse(process.argv.slice(2), options)
-  } catch (err) {
-    console.error(`${BASENAME}: ${err.message}`)
-    console.error(`Try '${BASENAME} --help' for more information.`)
-    process.exit(1)
-  }
-})()
+const __basename = path.basename(process.argv[1])
+const opts = {};
+require("pargv-lite")(process.argv, 2, opts, "", {
+  action: { def: true, set: ['-n', '--dry-run'] },
+  verbose: { def: false, set: ['-v', '--verbose'] },
+  prompt: { def: true, set: ['-q', '--quiet'] },
+  stdin: { def: false, set: ['-i', '--stdin'] },
+  fileFilters: { def: [], set: ['-f', '--file'] },
+  dirFilters: { def: [], set: ['-d', '--dir'] },
+  extraKeys: { def: [], set: ['-k', '--key'] },
+  hash: { def: 'sha1', set: ['-H', '--hash'] },
+  paths: { def: [], set: ['--'] },
+  help: { def: false, set: ['-h', '--help'] },
+  version: { def: false, set: ['-V', '--version'] },
+  hasher: { def: false, set: ['--hasher'] }
+}, (err, arg) => { if (!err) return;
+  console.error(`${__basename}: ${err} -- ${arg}`);
+  console.error(`Try '${__basename} --help' for more information.`);
+  process.exit(1);
+});
 if (opts.version) {
-  console.log('lndup v1.3.0')
+  console.log('lndup v1.3.1')
 } else if (process.argv.length < 3 || opts.help) {
-  console.log(`Usage: ${BASENAME} [OPTION]... [PATH]...`)
+  console.log(`Usage: ${__basename} [OPTION]... [PATH]...`)
   console.log('Hardlink duplicate files.')
   console.log('')
   console.log('  -n, --dry-run  don\'t link')
@@ -58,7 +54,7 @@ if (opts.version) {
     try {
       return crypto.createHash(HASH_ALGORITHM).digest().length
     } catch (err) {
-      console.error(`${BASENAME}: ${err.message} -- ${HASH_ALGORITHM}`)
+      console.error(`${__basename}: ${err.message} -- ${HASH_ALGORITHM}`)
       console.error("Try 'openssl list -digest-algorithms' for available digest algorithms.")
       process.exit(1)
     }
@@ -108,23 +104,23 @@ if (opts.version) {
       return size.toFixed(i) + SIZE_UNIT[i]
     }
 
-    const printTable = (...lines) => {
-      const maxlen = []
-      for (const line of lines) {
-        for (const i in line) {
-          line[i] = line[i].toString()
-          if (i >= maxlen.length || line[i].length > maxlen[i]) {
-            maxlen[i] = line[i].length
+    const printTable = (...rows) => {
+      const columnWidth = [];
+      for (const row of rows) {
+          for (let i = 0; i < row.length; ++i) {
+              row[i] = String(row[i]);
+              while (columnWidth.length <= i) columnWidth.push(0);
+              if (columnWidth[i] < row[i].length)
+                  columnWidth[i] = row[i].length;
           }
-        }
       }
-      for (const line of lines) {
-        for (const i in line) {
-          line[i] = line[i].padStart(maxlen[i])
+      for (const row of rows) {
+        for (let i = 0; i < row.length; ++i) {
+          row[i] = row[i].padStart(columnWidth[i]);
         }
-        console.log(line.join('  '))
+        console.log(row.join("  "));
       }
-    }
+    };
 
     const report = err => {
       return console.error('#' + err)
@@ -479,7 +475,7 @@ if (opts.version) {
       }
     }
     probe({
-      array: opts._,
+      array: opts.paths,
       readline: opts.stdin ? readline.createInterface({input: process.stdin}) : undefined,
       filter: (function compileFilters () {
         const filter = {}
@@ -493,7 +489,7 @@ if (opts.version) {
                   }
                 }
               } catch (err) {
-                console.error(`${BASENAME}: filter runtime error:`)
+                console.error(`${__basename}: filter runtime error:`)
                 console.error(err)
                 process.exit(1)
               }
@@ -509,7 +505,7 @@ if (opts.version) {
                   }
                 }
               } catch (err) {
-                console.error(`${BASENAME}: filter runtime error:`)
+                console.error(`${__basename}: filter runtime error:`)
                 console.error(err)
                 process.exit(1)
               }
@@ -517,7 +513,7 @@ if (opts.version) {
             }
           }
         } catch (err) {
-          console.error(`${BASENAME}: filter compilation error:`)
+          console.error(`${__basename}: filter compilation error:`)
           console.error(err)
           process.exit(1)
         }
@@ -530,13 +526,13 @@ if (opts.version) {
             try {
               return calculator.map(calc => calc(stats, path))
             } catch (err) {
-              console.error(`${BASENAME}: key calculator runtime error:`)
+              console.error(`${__basename}: key calculator runtime error:`)
               console.error(err)
               process.exit(1)
             }
           }
         } catch (err) {
-          console.error(`${BASENAME}: key calculator compilation error:`)
+          console.error(`${__basename}: key calculator compilation error:`)
           console.error(err)
           process.exit(1)
         }
