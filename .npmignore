@@ -1,4 +1,5 @@
 .gitignore
 .npmignore
-dev
 .eslintrc.js
+LICENSE
+dev
