@@ -22,7 +22,7 @@ require("pargv-lite")(process.argv, 2, opts, "", {
   process.exit(1);
 });
 if (opts.version) {
-  console.log('lndup v1.3.1')
+  console.log('lndup v1.3.2')
 } else if (process.argv.length < 3 || opts.help) {
   console.log(`Usage: ${__basename} [OPTION]... [PATH]...`)
   console.log('Hardlink duplicate files.')
