@@ -8,6 +8,11 @@
  */
 
 /**
+ * @typedef {{size: number, count: number}} SizeCount
+ * @typedef {{size: number, src: number, dst: number}} SizeSrcDst
+ */
+
+/**
  * @param {RootNode} rootNode
  */
 function addFile (rootNode, dev, size, exkey, digest, ino, path) {
@@ -206,159 +211,8 @@ const _path = require("path");
 const readline = require("readline");
 const child_process = require("child_process");
 
-/**
- * @typedef {{size: number, count: number}} SizeCount
- * @typedef {{size: number, src: number, dst: number}} SizeSrcDst
- */
 const isObject = obj => obj !== null && typeof obj === "object";
 const noop = () => {};
-
-class Prober {
-    /**
-     * @param {RootNode} tree 
-     * @param {ProberStats} stats 
-     */
-    constructor (tree, stats) {
-        this.setTree(tree);
-        this.setStats(stats);
-        /** @type {{[path: string]: 1 | 2}} 1: stat called, 2: stat returned */
-        this.visited = {};
-        this._undone = 0;
-        this._opened = false;
-    }
-    /**
-     * @param {RootNode} tree 
-     */
-    setTree (tree) {
-        this.tree = isObject(tree) ? tree : {};
-        return this;
-    }
-    /**
-     * @typedef {{stat: SizeCount, readdir: SizeCount, select: SizeCount}} ProberStats
-     * @param {ProberStats} stats 
-     */
-    setStats (stats) {
-        if (isObject(stats)) {
-            if (!isObject(stats.stat)) stats.stat = { size: 0, count: 0 };
-            if (!isObject(stats.readdir)) stats.readdir = { size: 0, count: 0 };
-            if (!isObject(stats.select)) stats.select = { size: 0, count: 0 };
-        } else stats = {
-            stat: { size: 0, count: 0 },
-            readdir: { size: 0, count: 0 },
-            select: { size: 0, count: 0 },
-        };
-        this.stats = stats;
-        return this;
-    }
-    open () {
-        if (!this._opened) {
-            this._opened = true;
-            ++this._undone;
-        }
-        return this;
-    }
-    /**
-     * @param {string} path 
-     */
-    probe (path) {
-        if (this._opened) this._stat(path, _path.basename(path), _path.resolve(path));
-        if (!this._undone) this.onDone();
-        return this;
-    }
-    /**
-     * @returns {(path: string) => this}
-     */
-    getProbe () {
-        return path => this.probe(path);
-    }
-    close () {
-        if (this._opened) {
-            this._opened = false;
-            if (!--this._undone) this.onDone();
-        }
-        return this;
-    }
-    /**
-     * @param {string} event 
-     * @param {Function} listener 
-     */
-    on (event, listener) {
-        this["on" + event[0].toUpperCase() + event.slice(1)] = listener;
-        return this;
-    }
-    /**
-     * @param {NodeJS.ErrnoException} err 
-     * @param {string} path 
-     * @param {fs.Stats} stats With this param, the error is from readdir(), else stat()
-     */
-    onError (err, path, stats) {
-        return;
-    }
-    onDone () {
-        return;
-    }
-    /**
-     * @param {{stats: fs.Stats, path: string, name: string}} file
-     * @returns {boolean} preserve?
-     */
-    onFile (file) {
-        return true;
-    }
-    /**
-     * @param {{stats: fs.Stats, path: string, name: string}} file
-     * @returns {string} extraKey
-     */
-    onExkey (file) {
-        return "";
-    }
-    /**
-     * @param {{stats: fs.Stats, path: string, name: string, files: string[]}} dir
-     * @returns {boolean} preserve?
-     */
-    onDir (dir) {
-        return true;
-    }
-    /**
-     * @param {string} path 
-     * @param {string} name
-     * @param {string} absPath
-     */
-    _stat (path, name, absPath) {
-        if (this.visited[absPath] === undefined) {
-            this.visited[absPath] = 1;
-            ++this._undone;
-            return fs.lstat(path, (err, stats) => {
-                if (!err) {
-                    this.stats.stat.count++;
-                    this.stats.stat.size += stats.size;
-                    if (this.visited[absPath] === 1) {
-                        this.visited[absPath] = 2;
-                        if (stats.isFile()) {
-                            if (stats.size > 0 && this.onFile({stats, path, name})) {
-                                this.stats.select.count++;
-                                this.stats.select.size += stats.size;
-                                addFile(this.tree, stats.dev + "", stats.size + "", this.onExkey({stats, path, name}), "", stats.ino + "", path);
-                            }
-                        } else if (stats.isDirectory()) return fs.readdir(path, (err, files) => {
-                            if (!err) {
-                                if (this.onDir({stats, path, name, files})) {
-                                    this.stats.readdir.count++;
-                                    for (const name of files) {
-                                        this.stats.readdir.size += Buffer.byteLength(name);
-                                        this._stat(_path.join(path, name), name, _path.join(absPath, name));
-                                    }
-                                }
-                            } else this.onError(err, path, stats);
-                            if (!--this._undone) this.onDone();
-                        });
-                    }
-                } else this.onError(err, path, null);
-                if (!--this._undone) this.onDone();
-            });
-        }
-    }
-}
-exports.Prober = Prober;
 
 /** @template T */
 class Queue {
@@ -520,6 +374,173 @@ class MPHash {
 MPHash.HASHD_PATH = _path.join(__dirname, "bin", "hashd");
 exports.MPHash = MPHash;
 
+/**
+ * @typedef {(src: fs.PathLike, dst: fs.PathLike, callback: (err: NodeJS.ErrnoException, remedy: NodeJS.ErrnoException) => void) => void} SafeLinkFunc
+ * @type {SafeLinkFunc}
+ */
+function safeLink (src, dst, callback) {
+    const mid = `${dst}.${crypto.randomBytes(4).toString("hex")}`;
+    fs.rename(dst, mid, errdm => errdm 
+        ? callback(errdm, null) 
+        : fs.link(src, dst, errln => errln 
+            ? fs.rename(mid, dst, errmd => callback(errln, errmd))
+            : fs.unlink(mid, errul => callback(null, errul))));
+}
+exports.safeLink = safeLink;
+
+/**
+ * @type {SafeLinkFunc}
+ */
+exports.successFakeLink = (src, dst, callback) => setImmediate(callback, null, null);
+
+class Prober {
+    /**
+     * @param {RootNode} tree 
+     * @param {ProberStats} stats 
+     */
+    constructor (tree, stats) {
+        this.setTree(tree);
+        this.setStats(stats);
+        /** @type {{[path: string]: 1 | 2}} 1: stat called, 2: stat returned */
+        this.visited = {};
+        this._undone = 0;
+        this._opened = false;
+    }
+    /**
+     * @param {RootNode} tree 
+     */
+    setTree (tree) {
+        this.tree = isObject(tree) ? tree : {};
+        return this;
+    }
+    /**
+     * @typedef {{stat: SizeCount, readdir: SizeCount, select: SizeCount}} ProberStats
+     * @param {ProberStats} stats 
+     */
+    setStats (stats) {
+        if (isObject(stats)) {
+            if (!isObject(stats.stat)) stats.stat = { size: 0, count: 0 };
+            if (!isObject(stats.readdir)) stats.readdir = { size: 0, count: 0 };
+            if (!isObject(stats.select)) stats.select = { size: 0, count: 0 };
+        } else stats = {
+            stat: { size: 0, count: 0 },
+            readdir: { size: 0, count: 0 },
+            select: { size: 0, count: 0 },
+        };
+        this.stats = stats;
+        return this;
+    }
+    open () {
+        if (!this._opened) {
+            this._opened = true;
+            ++this._undone;
+        }
+        return this;
+    }
+    /**
+     * @param {string} path 
+     */
+    probe (path) {
+        if (this._opened) this._stat(path, _path.basename(path), _path.resolve(path));
+        if (!this._undone) this.onDone();
+        return this;
+    }
+    /**
+     * @returns {(path: string) => this}
+     */
+    getProbe () {
+        return path => this.probe(path);
+    }
+    close () {
+        if (this._opened) {
+            this._opened = false;
+            if (!--this._undone) this.onDone();
+        }
+        return this;
+    }
+    /**
+     * @param {string} event 
+     * @param {Function} listener 
+     */
+    on (event, listener) {
+        this["on" + event[0].toUpperCase() + event.slice(1)] = listener;
+        return this;
+    }
+    /**
+     * @param {NodeJS.ErrnoException} err 
+     * @param {string} path 
+     * @param {fs.Stats} stats With this param, the error is from readdir(), else stat()
+     */
+    onError (err, path, stats) {
+        return;
+    }
+    onDone () {
+        return;
+    }
+    /**
+     * @param {{stats: fs.Stats, path: string, name: string}} file
+     * @returns {boolean} preserve?
+     */
+    onFile (file) {
+        return true;
+    }
+    /**
+     * @param {{stats: fs.Stats, path: string, name: string}} file
+     * @returns {string} extraKey
+     */
+    onExkey (file) {
+        return "";
+    }
+    /**
+     * @param {{stats: fs.Stats, path: string, name: string, files: string[]}} dir
+     * @returns {boolean} preserve?
+     */
+    onDir (dir) {
+        return true;
+    }
+    /**
+     * @param {string} path 
+     * @param {string} name
+     * @param {string} absPath
+     */
+    _stat (path, name, absPath) {
+        if (this.visited[absPath] === undefined) {
+            this.visited[absPath] = 1;
+            ++this._undone;
+            return fs.lstat(path, (err, stats) => {
+                if (!err) {
+                    this.stats.stat.count++;
+                    this.stats.stat.size += stats.size;
+                    if (this.visited[absPath] === 1) {
+                        this.visited[absPath] = 2;
+                        if (stats.isFile()) {
+                            if (stats.size > 0 && this.onFile({stats, path, name})) {
+                                this.stats.select.count++;
+                                this.stats.select.size += stats.size;
+                                addFile(this.tree, stats.dev + "", stats.size + "", this.onExkey({stats, path, name}), "", stats.ino + "", path);
+                            }
+                        } else if (stats.isDirectory()) return fs.readdir(path, (err, files) => {
+                            if (!err) {
+                                if (this.onDir({stats, path, name, files})) {
+                                    this.stats.readdir.count++;
+                                    for (const name of files) {
+                                        this.stats.readdir.size += Buffer.byteLength(name);
+                                        this._stat(_path.join(path, name), name, _path.join(absPath, name));
+                                    }
+                                }
+                            } else this.onError(err, path, stats);
+                            if (!--this._undone) this.onDone();
+                        });
+                    }
+                } else this.onError(err, path, null);
+                if (!--this._undone) this.onDone();
+            });
+        }
+    }
+}
+exports.Prober = Prober;
+
+
 class Hasher {
     /**
      * @param {RootNode} tree 
@@ -615,25 +636,6 @@ class Hasher {
     }
 }
 exports.Hasher = Hasher;
-
-/**
- * @typedef {(src: fs.PathLike, dst: fs.PathLike, callback: (err: NodeJS.ErrnoException, remedy: NodeJS.ErrnoException) => void) => void} SafeLinkFunc
- * @type {SafeLinkFunc}
- */
-function safeLink (src, dst, callback) {
-    const mid = `${dst}.${crypto.randomBytes(4).toString("hex")}`;
-    fs.rename(dst, mid, errdm => errdm 
-        ? callback(errdm, null) 
-        : fs.link(src, dst, errln => errln 
-            ? fs.rename(mid, dst, errmd => callback(errln, errmd))
-            : fs.unlink(mid, errul => callback(null, errul))));
-}
-exports.safeLink = safeLink;
-
-/**
- * @type {SafeLinkFunc}
- */
-exports.successFakeLink = (src, dst, callback) => setImmediate(callback, null, null);
 
 class Linker {
     /**
