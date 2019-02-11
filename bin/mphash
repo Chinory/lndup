@@ -3,12 +3,13 @@
 const fs = require("fs"), os = require("os"), lndup = require(".."), readline = require("readline"),
     algorithm = process.argv[2] || "sha1",
     encoding = process.argv[3] || "hex", 
-    localBufferSize = Number(process.argv[4]) || 4096,
+    localBufferSize = Number(process.argv[4]) || 0,
     childBufferSize = Number(process.argv[5]) || 8388608;
 process.stdout.on("error", process.exit);
 process.stderr.on("error", process.exit);
 
-const hash = new lndup.MPHash(algorithm, encoding, localBufferSize, childBufferSize).open(os.cpus().length);
+const hash = new lndup.MPHash(algorithm, encoding, localBufferSize, childBufferSize);
+hash.open(os.cpus().length);
 readline.createInterface(process.stdin).on("close", () => hash.close()).on("line", path => {
     let size = 0;
     try {

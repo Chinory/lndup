@@ -1,209 +1,66 @@
 "use strict";
-/**
- * @typedef {{[ino: string]: string[]}} DigestNode
- * @typedef {{[digest: string]: DigestNode}} ExkeyNode
- * @typedef {{[exkey: string]: ExkeyNode}} SizeNode
- * @typedef {{[size: string]: SizeNode}} DevNode
- * @typedef {{[dev: string]: DevNode}} RootNode
- */
 
-/**
- * @typedef {{size: number, count: number}} SizeCount
- * @typedef {{size: number, src: number, dst: number}} SizeSrcDst
- */
-
-/**
- * @param {RootNode} rootNode
- */
-function addFile (rootNode, dev, size, exkey, digest, ino, path) {
-    const devNode = rootNode[dev] || (rootNode[dev] = {});
-    const sizeNode = devNode[size] || (devNode[size] = {});
-    const exkeyNode = sizeNode[exkey] || (sizeNode[exkey] = {});
-    const digestNode = exkeyNode[digest] || (exkeyNode[digest] = {});
-    const paths = digestNode[ino] || (digestNode[ino] = []);
-    paths.push(path);
-}
-exports.addFile = addFile;
-
-/**
- * @param {RootNode} rootNode 
- * @returns {RootNode} new one
- */
-function filterHashWorks (rootNode) {
-    const newRootNode = {};
-    for (const dev of Object.keys(rootNode)) {
-        const devNode = rootNode[dev]; 
-        const newDevNode = {}; let useDev = false;
-        for (const size of Object.keys(devNode)) {
-            const sizeNode = devNode[size]; 
-            const newSizeNode = {}; let useSize = false;
-            for (const exkey of Object.keys(sizeNode)) {
-                const exkeyNode = sizeNode[exkey];
-                const digestlessNode = exkeyNode[""];
-                if (digestlessNode) {
-                    const inoArray = Object.keys(digestlessNode);
-                    let inoCount = inoArray.length;
-                    if (inoCount > 1) {
-                        const newDigestlessNode = {};
-                        for (const ino of inoArray) {
-                            const paths = digestlessNode[ino];
-                            if (paths.length)
-                                newDigestlessNode[ino] = paths.slice();
-                            else --inoCount;
-                        }
-                        if (inoCount > 1) {
-                            newSizeNode[exkey] = {[""]: newDigestlessNode}, useSize = true;
-                        }
-                    }
-                }
-            } if (useSize) newDevNode[size] = newSizeNode, useDev = true;
-        } if (useDev) newRootNode[dev] = newDevNode;
+const iterHashWorks = exports.iterHashWorks = function* (devTable, dev) {
+    var sizeTable = devTable[dev], sizes = Object.keys(sizeTable);
+    for (var i = 0; i < sizes.length; ++i) { var size = Number(sizes[i]);
+        var exkeyTable = sizeTable[sizes[i]], exkeys = Object.keys(exkeyTable);
+        for (var j = 0; j < exkeys.length; ++j) {
+            var digestTable = exkeyTable[exkeys[j]], inoTable, inos;
+            if ((inoTable = digestTable[""]) && (inos = Object.keys(inoTable)).length > 1)
+                yield { size, digestTable, digest: "", inos };
+                // for (var k = 0; k < inos.length; ++k) {
+                //     var ino = inos[k], paths = inoTable[ino];
+                //     yield { size, digestTable, digest: "", ino, paths };
+                // }
+        }
     }
-    return newRootNode;
-}
-exports.filterHashWorks = filterHashWorks;
-
-/**
- * @param {RootNode} rootNode
- * @param {string} dev
- */
-function* hashWorks (rootNode, dev) {
-    const devNode = rootNode[dev],
-        sizeArray = Object.keys(devNode);
-    let sizeCount = sizeArray.length;
-    for (const _size of sizeArray) { 
-        const size = Number(_size);
-        const sizeNode = devNode[_size],
-            exkeyArray = Object.keys(sizeNode);
-        let exkeyCount = exkeyArray.length;
-        for (const exkey of exkeyArray) {
-            const exkeyNode = sizeNode[exkey],
-                digestArray = Object.keys(exkeyNode);
-            let digestCount = digestArray.length; 
-            const digestlessNode = exkeyNode[""];
-            if (digestlessNode) { 
-                const inoArray = Object.keys(digestlessNode); 
-                let inoCount = inoArray.length; 
-                if (inoCount > 1) for (const ino of inoArray) {
-                    const paths = digestlessNode[ino]; 
-                    if (paths.length) {
-                        const digest = yield {paths, size};
-                        if (digest) {
-                            const digestNode = exkeyNode[digest];
-                            if (digestNode) {
-                                const inoNode = digestNode[ino];
-                                if (inoNode) inoNode.push(...paths);
-                                else digestNode[ino] = paths.slice();
-                            } else {
-                                exkeyNode[digest] = {[ino]: paths.slice()}; ++digestCount;
-                            }
-                            delete digestlessNode[ino]; --inoCount;
-                        }
-                    }
-                } if (!inoCount) { delete exkeyNode[""]; --digestCount; }
-            } if (!digestCount) { delete sizeNode[exkey]; --exkeyCount; }
-        } if (!exkeyCount) { delete devNode[_size]; --sizeCount; }
-    } if (!sizeCount) { delete rootNode[dev]; }  
-}
-exports.hashWorks = hashWorks;
+};
 
 
-/**
- * @param {RootNode} rootNode 
- * @returns {RootNode} new one
- */
-function filterdedupWorks (rootNode) {
-    const newRootNode = {};
-    for (const dev of Object.keys(rootNode)) {
-        const devNode = rootNode[dev]; 
-        const newDevNode = {}; let useDev = false;
-        for (const size of Object.keys(devNode)) {
-            const sizeNode = devNode[size]; 
-            const newSizeNode = {}; let useSize = false;
-            for (const exkey of Object.keys(sizeNode)) {
-                const exkeyNode = sizeNode[exkey]; 
-                const newExkeyNode = {}; let useExkey = false;
-                for (const digest of Object.keys(exkeyNode)) if (digest) {
-                    const digestNode = exkeyNode[digest];
-                    const newDigestNode = {},
-                        inoArray = Object.keys(digestNode);
-                    let inoCount = inoArray.length;
-                    if (inoCount > 1) {
-                        for (const ino of inoArray)  {
-                            const paths = digestNode[ino];
-                            if (paths.length) 
-                                newDigestNode[ino] = paths.slice();
-                            else --inoCount;
-                        }
-                        if (inoCount > 1) {
-                            newExkeyNode[digest] = newDigestNode, useExkey = true;
-                        }
-                    }
-                } if (useExkey) newSizeNode[exkey] = newExkeyNode, useSize = true;
-            } if (useSize) newDevNode[size] = newSizeNode, useDev = true;
-        } if (useDev) newRootNode[dev] = newDevNode;
+const finishHashWork = exports.finishHashWork = function (work, ino, newDigest) {
+    var inoTableOld, pathsOld, inoTableNew, pathsNew;
+    if ((inoTableOld = work.digestTable[work.digest]) && (pathsOld = inoTableOld[ino])) {
+        if ((inoTableNew = work.digestTable[newDigest])) { if (inoTableNew === inoTableOld) return; }
+        else inoTableNew = work.digestTable[newDigest] = {};
+        if ((pathsNew = inoTableNew[ino]) && pathsNew !== pathsOld) 
+            for (let i = 0; i < pathsOld.length; ++i) pathsNew.push(pathsOld[i]);
+        else inoTableNew[ino] = pathsOld.slice();
+        delete inoTableOld[ino];
+        work.digest = newDigest;
     }
-    return newRootNode;
-}
-exports.filterdedupWorks = filterdedupWorks;
+};
 
-/**
- * @param {RootNode} rootNode
- * @param {string} dev
- */
-function* dedupWorks (rootNode, dev) {
-    const devNode = rootNode[dev],
-        sizeArray = Object.keys(devNode); 
-    let sizeCount = sizeArray.length;
-    for (const size of sizeArray) { 
-        const sizeNum = Number(size);
-        const sizeNode = devNode[size],
-            exkeyArray = Object.keys(sizeNode); 
-        let exkeyCount = exkeyArray.length;
-        for (const exkey of exkeyArray) { 
-            const exkeyNode = sizeNode[exkey],
-                digestArray = Object.keys(exkeyNode); 
-            let digestCount = digestArray.length;
-            for (const digest of digestArray) if (digest) { 
-                const digestNode = exkeyNode[digest],
-                    inoArray = Object.keys(digestNode); 
-                let inoCount = inoArray.length; 
-                if (inoCount > 1) {
-                    let mostInoIndex = 0, 
-                        mostInoCount = digestNode[inoArray[0]].length;
-                    for (let i = 1; i < inoCount; ++i) {
-                        const count = digestNode[inoArray[i]].length;
-                        if (mostInoCount < count) 
-                            mostInoCount = count,
-                            mostInoIndex = i;
-                    }
-                    if (mostInoCount) {
-                        const mostInoPaths = digestNode[inoArray[mostInoIndex]];
-                        const src = mostInoPaths[0]; let src0 = 1;
-                        for (let inoIndex = 0; inoIndex < inoCount; ++inoIndex) {
-                            if (inoIndex === mostInoIndex) continue;
-                            const dsts = digestNode[inoArray[inoIndex]]; let fail = 0;
-                            for (let i = 0, n = dsts.length; i < n; ++i) { 
-                                const dst = dsts[i];
-                                if (yield {src, dst, size: sizeNum, src0}) {
-                                    mostInoPaths.push(dst); 
-                                    src0 = 0;
-                                } else dsts[fail++] = dst;
-                                
-                            }
-                            dsts.length = fail;
-                        }
-                    }
-                }
-                for (const ino of inoArray) {
-                    if (!digestNode[ino].length) { delete digestNode[ino]; --inoCount; }
-                }
-                if (!inoCount) { delete exkeyNode[digest]; --digestCount; }
-            } if (!digestCount) { delete sizeNode[exkey]; --exkeyCount; }
-        } if (!exkeyCount) { delete devNode[sizeNum]; --sizeCount; }
-    } if (!sizeCount) { delete rootNode[dev]; }  
-}
-exports.dedupWorks = dedupWorks;
+
+const iterLinkWorks = exports.iterLinkWorks = function* (devTable, dev) {
+    var sizeTable = devTable[dev], sizes = Object.keys(sizeTable);
+    for (var i = 0; i < sizes.length; ++i) { var size = Number(sizes[i]);
+        var exkeyTable = sizeTable[sizes[i]], exkeys = Object.keys(exkeyTable);
+        for (var j = 0; j < exkeys.length; ++j) {
+            var digestTable = exkeyTable[exkeys[j]], digests = Object.keys(digestTable);
+            for (var k = 0; k < digests.length; ++k) {
+                var inoTable = digestTable[digests[k]], inos = Object.keys(inoTable);
+                if (inos.length < 2) continue;
+                for (var mm = 0, mmn = inoTable[inos[0]].length, m = 1, mn; m < inos.length; ++m)
+                    if (mmn < (mn = inoTable[inos[m]].length)) mmn = mn, mm = m;
+                if (!mmn) continue;
+                var srcIno = inos[mm]; mm < inos.length - 1 ? inos[mm] = inos.pop() : inos.pop();
+                yield { size, inoTable, srcIno, dstInos: inos };
+            }
+        }
+    }
+};
+
+const finishLinkWork = exports.finishLinkWork = function (work, dstIno, dsti) {
+    var dsts = work.inoTable[dstIno];
+    work.inoTable[work.srcIno].push(dsts[dsti]);
+    dsts[dsti] = "";
+};
+
+const finishLinkWorks = exports.finishLinkWorks = function (work) {
+    for (var ino, i = 0; i < work.dstInos.length; ++i) {
+        work.inoTable[ino = work.dstInos[i]] = work.inoTable[ino].filter(Boolean);
+    }
+};
 
 const fs = require("fs");
 const crypto = require("crypto");
@@ -214,19 +71,14 @@ const child_process = require("child_process");
 const isObject = obj => obj !== null && typeof obj === "object";
 const noop = () => {};
 
-/** @template T */
 class Queue {
     constructor () {
-        /** @type {T[]} */
         this._in = [];
-        /** @type {T[]} */
         this._out = [];
     }
-    /** @param {T} item */
     enqueue (item) {
         this._in.push(item);
     }
-    /** @param {T} def */
     dequeue (def) {
         if (this._out.length) {
             return this._out.pop();
@@ -241,23 +93,17 @@ class Queue {
 }
 exports.Queue = Queue;
 
-/** 
- * multi-process hash
- * @typedef {{proc:child_process.ChildProcess,errs:Queue<string>,callbacks:Queue<(err:string,digest:string)=>void>}} MPHashChildProcess
- */
+
 class MPHash {
     constructor (algorithm = "sha1", encoding = "hex", localBufferSize = 4096, childBufferSize = 8388608) {
-        /** @type {MPHashChildProcess[]} */
-        this.cps = [];
-        this.cur = -1;
         this.setStats();
-        this._args = [MPHash.HASHD_PATH, algorithm, encoding, childBufferSize + ""];
+        this.childs = [];
+        this.childTurn = -1;
+        this._childArgs = [MPHash.HASHD_PATH, algorithm, encoding, childBufferSize + ""];
         this._buffer = Buffer.alloc(localBufferSize);
+        this._undone = 0;
+        this._opened = false;
     }
-    /**
-     * @typedef {{hashInt: SizeCount, hashExt: SizeCount}} MPHashStats
-     * @param {MPHashStats} stats 
-     */
     setStats (stats) {
         if (isObject(stats)) {
             if (!isObject(stats.hashInt)) stats.hashInt = { size: 0, count: 0 };
@@ -267,83 +113,77 @@ class MPHash {
             hashExt: { size: 0, count: 0 },
         };
         this.stats = stats;
-        return this;
     }
-    /**
-     * @param {number} count
-     */
-    open (count) {
-        const cps = this.cps;
-        for (let i = 0; i < count; ++i) {
-            const cp = {
-                proc: child_process.spawn(process.execPath, this._args, {windowsHide: true}),
-                errs: new Queue(),
-                callbacks: new Queue(),
-            };
-            cp.proc.on("error", err => this.onError(err));
-            cp.proc.on("close", () => { 
-                const i = cps.indexOf(cp);
-                if (~i) { let n = cps.length;
-                    if (i < --n) cps[i] = cps.pop(); else cps.pop();
-                    if (!n) this.onDone();
-                }
-            });
-            readline.createInterface(cp.proc.stderr).on("line", line => cp.errs.enqueue(line));
-            readline.createInterface(cp.proc.stdout).on("line", line => line
-                ? cp.callbacks.dequeue(noop)("", line)
-                : cp.callbacks.dequeue(noop)(cp.errs.dequeue(""), ""));
-            cps.push(cp);
+    createChild () {
+        const child = { works: new Queue(), errs: new Queue(),
+            proc: child_process.spawn(process.execPath, this._childArgs, {windowsHide: true}),
+        };
+        this.childs.push(child); ++this._undone;
+        child.proc.on("error", err => this.onError(err));
+        child.proc.on("close", () => { 
+            var i = this.childs.indexOf(child);
+            if (~i) i < this.childs.length - 1 ? this.childs[i] = this.childs.pop() : this.childs.pop();
+            if (!--this._undone) return this.onDone();
+        });
+        readline.createInterface(child.proc.stderr).on("line", err => child.errs.enqueue(err));
+        readline.createInterface(child.proc.stdout).on("line", digest => { 
+            var work = child.works.dequeue();
+            if (work) if (digest) {
+                this.stats.hashExt.size += work.size; ++this.stats.hashExt.count;
+                return work.callback("", digest);
+            } else {
+                return work.callback(child.errs.dequeue("unknown error"), "");
+            }
+        });
+    }
+    closeChilds () {
+        for (var child; (child = this.childs.pop());) {
+            child.proc.stdin.end();
         }
-        return this;
+    }
+    open (childCount) {
+        if (!this._opened && childCount > 0) {
+            do this.createChild(); while (--childCount);
+            this._opened = true; ++this._undone;
+        }
     }
     close () {
-        for (const cp of this.cps)
-            cp.proc.stdin.end();
-        this.cps = [];
-        return this;
+        if (this._opened) {
+            this._opened = false;
+            this.closeChilds();
+            if (!--this._undone) setImmediate(() => this.onDone());
+        }
     }
-    /**
-     * @param {string} path 
-     * @param {number} size
-     * @param {(err: string, digest: string) => void} callback 
-     */
-    hash (path, size, callback) {
+    hash (path, size, callback, childIndex = -1) {
+        if (!this._opened) return;
         if (size > this._buffer.length) {
-            if (this.cps.length) {
-                const cp = this.cps[++this.cur < this.cps.length ? this.cur : this.cur = 0];
-                cp.callbacks.enqueue((err, digest) => {
-                    if (!err) {
-                        this.stats.hashExt.size += size;
-                        this.stats.hashExt.count++;
-                    }
-                    return callback(err, digest);
-                });
-                cp.proc.stdin.write(`${path}\n`);
+            if (this.childs.length) {
+                if (!~childIndex) childIndex = ++this.childTurn < this.childs.length ? this.childTurn : this.childTurn = 0;
+                const child = this.childs[childIndex];
+                child.works.enqueue({ size, callback });
+                child.proc.stdin.write(`${path}\n`);
             } else {
-                setImmediate(callback, String(Error("MPHash no child processes")), "");
-                return;
+                setImmediate(callback, "multi-process hash no child process", "");
             }
         } else {
-            let fd = 0;
+            let fd, digest;
             try {
                 fd = fs.openSync(path, "r");
             } catch (err) {
                 setImmediate(callback, String(err), "");
                 return;
             }
-            let digest = "";
             try {
-                digest = crypto.createHash(this._args[1])
-                    .update(this._buffer.slice(0, fs.readSync(fd, this._buffer, 0, this._buffer.length, null)))
-                    .digest(this._args[2]);
+                digest = crypto.createHash(this._childArgs[1])
+                    .update(this._buffer.slice(0, fs.readSync(fd, this._buffer, 0, this._buffer.length, 0)))
+                    .digest(this._childArgs[2]);
             } catch (err) {
-                fs.close(fd, noop);
+                fs.closeSync(fd);
                 setImmediate(callback, String(err), "");
                 return;
             }
-            this.stats.hashInt.size += size;
-            this.stats.hashInt.count++;
-            fs.close(fd, noop);
+            this.stats.hashInt.size += size; ++this.stats.hashInt.count;
+            fs.closeSync(fd);
             setImmediate(callback, "", digest);
         }
     }
@@ -389,7 +229,7 @@ exports.successFakeLink = (src, dst, callback) => setImmediate(callback, null, n
 
 class Prober {
     /**
-     * @param {RootNode} tree 
+     * @param {DevTable} tree 
      * @param {ProberStats} stats 
      */
     constructor (tree, stats) {
@@ -401,7 +241,7 @@ class Prober {
         this._opened = false;
     }
     /**
-     * @param {RootNode} tree 
+     * @param {DevTable} tree 
      */
     setTree (tree) {
         this.tree = isObject(tree) ? tree : {};
@@ -505,7 +345,13 @@ class Prober {
                             if (stats.size > 0 && this.onFile({stats, path, name})) {
                                 this.stats.select.count++;
                                 this.stats.select.size += stats.size;
-                                addFile(this.tree, stats.dev + "", stats.size + "", this.onExkey({stats, path, name}), "", stats.ino + "", path);
+                                var node = this.tree, key;
+                                node = node[key = stats.dev + ""] || (node[key] = {});
+                                node = node[key = stats.size + ""] || (node[key] = {});
+                                node = node[key = this.onExkey({stats, path, name})] || (node[key] = {});
+                                node = node[""] || (node[""] = {});
+                                node = node[key = stats.ino + ""] || (node[key] = []);
+                                node.push(path);
                             }
                         } else if (stats.isDirectory()) return fs.readdir(path, (err, files) => {
                             if (!err) {
@@ -531,7 +377,7 @@ exports.Prober = Prober;
 
 class Hasher {
     /**
-     * @param {RootNode} tree 
+     * @param {DevTable} tree 
      * @param {HasherStats} stats 
      */
     constructor (tree, stats) {
@@ -540,7 +386,7 @@ class Hasher {
         this._undone = 0;
     }
     /**
-     * @param {RootNode} tree 
+     * @param {DevTable} tree 
      */
     setTree (tree) {
         this.tree = isObject(tree) ? tree : {};
@@ -573,7 +419,7 @@ class Hasher {
     hash (hash) {
         ++this._undone;
         for (const dev of Object.keys(this.tree)) { ++this._undone;
-            const works = hashWorks(this.tree, dev); 
+            const works = iterHashWorks(this.tree, dev); 
             let paths = [], size = 0, i = 0;
             const callback = (err, digest) => {
                 if (!err) {
@@ -621,7 +467,7 @@ exports.Hasher = Hasher;
 
 class Linker {
     /**
-     * @param {RootNode} tree 
+     * @param {DevTable} tree 
      * @param {LinkerStats} stats 
      */
     constructor (tree, stats) {
@@ -630,7 +476,7 @@ class Linker {
         this._undone = 0;
     }
     /**
-     * @param {RootNode} tree 
+     * @param {DevTable} tree 
      */
     setTree (tree) {
         this.tree = isObject(tree) ? tree : {};
