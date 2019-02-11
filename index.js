@@ -228,29 +228,16 @@ exports.safeLink = safeLink;
 exports.successFakeLink = (src, dst, callback) => setImmediate(callback, null, null);
 
 class Prober {
-    /**
-     * @param {DevTable} tree 
-     * @param {ProberStats} stats 
-     */
-    constructor (tree, stats) {
-        this.setTree(tree);
+    constructor (data, stats) {
+        this.setData(data);
         this.setStats(stats);
-        /** @type {{[path: string]: 1 | 2}} 1: stat called, 2: stat returned */
         this.visited = {};
         this._undone = 0;
         this._opened = false;
     }
-    /**
-     * @param {DevTable} tree 
-     */
-    setTree (tree) {
-        this.tree = isObject(tree) ? tree : {};
-        return this;
+    setData (data) {
+        this.data = isObject(data) ? data : {};
     }
-    /**
-     * @typedef {{stat: SizeCount, readdir: SizeCount, select: SizeCount}} ProberStats
-     * @param {ProberStats} stats 
-     */
     setStats (stats) {
         if (isObject(stats)) {
             if (!isObject(stats.stat)) stats.stat = { size: 0, count: 0 };
@@ -262,34 +249,27 @@ class Prober {
             select: { size: 0, count: 0 },
         };
         this.stats = stats;
-        return this;
     }
     open () {
         if (!this._opened) {
             this._opened = true;
             ++this._undone;
         }
-        return this;
+    }
+    close () {
+        if (this._opened) {
+            this._opened = false;
+            if (!--this._undone) setImmediate(() => this.onDone());
+        }
     }
     /**
      * @param {string} path 
      */
     probe (path) {
-        if (this._opened) this._stat(path, _path.basename(path), _path.resolve(path));
-        if (!this._undone) this.onDone();
-        return this;
-    }
-    close () {
         if (this._opened) {
-            this._opened = false;
-            if (!--this._undone) this.onDone();
+            this._stat(path, _path.basename(path), _path.resolve(path));
         }
-        return this;
     }
-    /**
-     * @param {string} event 
-     * @param {Function} listener 
-     */
     on (event, listener) {
         this["on" + event[0].toUpperCase() + event.slice(1)] = listener;
         return this;
@@ -299,103 +279,79 @@ class Prober {
      * @param {string} path 
      * @param {fs.Stats} stats With this param, the error is from readdir(), else stat()
      */
-    onError (err, path, stats) {
-        return;
-    }
-    onDone () {
-        return;
-    }
+    onError (err, path, stats) {}
+    onDone () {}
     /**
-     * @param {{stats: fs.Stats, path: string, name: string}} file
+     * @param {stats: fs.Stats, name: string, path: string} file
      * @returns {boolean} preserve?
      */
-    onFile (file) {
-        return true;
-    }
+    onFile (stats, name, path) { return true; }
     /**
-     * @param {{stats: fs.Stats, path: string, name: string}} file
+     * @param {stats: fs.Stats, name: string, path: string} file
      * @returns {string} extraKey
      */
-    onExkey (file) {
-        return "";
-    }
+    onExkey (stats, name, path) { return ""; }
     /**
-     * @param {{stats: fs.Stats, path: string, name: string, files: string[]}} dir
+     * @param {stats: fs.Stats, name: string, path: string, files: string[]} dir
      * @returns {boolean} preserve?
      */
-    onDir (dir) {
-        return true;
-    }
+    onDir (stats, name, path, files) { return true; }
     /**
      * @param {string} path 
      * @param {string} name
      * @param {string} absPath
      */
     _stat (path, name, absPath) {
-        if (this.visited[absPath] === undefined) {
-            this.visited[absPath] = 1;
-            ++this._undone;
-            return fs.lstat(path, (err, stats) => {
-                if (!err) {
-                    this.stats.stat.count++;
-                    this.stats.stat.size += stats.size;
-                    if (this.visited[absPath] === 1) {
-                        this.visited[absPath] = 2;
-                        if (stats.isFile()) {
-                            if (stats.size > 0 && this.onFile({stats, path, name})) {
-                                this.stats.select.count++;
-                                this.stats.select.size += stats.size;
-                                var node = this.tree, key;
-                                node = node[key = stats.dev + ""] || (node[key] = {});
-                                node = node[key = stats.size + ""] || (node[key] = {});
-                                node = node[key = this.onExkey({stats, path, name})] || (node[key] = {});
-                                node = node[""] || (node[""] = {});
-                                node = node[key = stats.ino + ""] || (node[key] = []);
-                                node.push(path);
-                            }
-                        } else if (stats.isDirectory()) return fs.readdir(path, (err, files) => {
-                            if (!err) {
-                                if (this.onDir({stats, path, name, files})) {
-                                    this.stats.readdir.count++;
-                                    for (const name of files) {
-                                        this.stats.readdir.size += Buffer.byteLength(name);
-                                        this._stat(_path.join(path, name), name, _path.join(absPath, name));
-                                    }
+        if (this.visited[absPath]) return; this.visited[absPath] = 1;
+        ++this._undone;
+        return fs.lstat(path, (err, stats) => {
+            if (!err) {
+                this.stats.stat.count++;
+                this.stats.stat.size += stats.size;
+                if (this.visited[absPath] === 1) {
+                    this.visited[absPath] = 2;
+                    if (stats.isFile()) {
+                        if (stats.size > 0 && this.onFile(stats, name, path)) {
+                            this.stats.select.count++;
+                            this.stats.select.size += stats.size;
+                            var node = this.data, key;
+                            node = node[key = stats.dev + ""] || (node[key] = {});
+                            node = node[key = stats.size + ""] || (node[key] = {});
+                            node = node[key = this.onExkey(stats, name, path)] || (node[key] = {});
+                            node = node[""] || (node[""] = {});
+                            node = node[key = stats.ino + ""] || (node[key] = []);
+                            node.push(path);
+                        }
+                    } else if (stats.isDirectory()) return fs.readdir(path, (err, files) => {
+                        if (!err) {
+                            if (this.onDir(stats, name, path, files)) {
+                                this.stats.readdir.count++;
+                                for (let i = 0; i < files.length; ++i) {
+                                    this.stats.readdir.size += Buffer.byteLength(files[i]);
+                                    this._stat(_path.join(path, files[i]), files[i], _path.join(absPath, files[i]));
                                 }
-                            } else this.onError(err, path, stats);
-                            if (!--this._undone) this.onDone();
-                        });
-                    }
-                } else this.onError(err, path, null);
-                if (!--this._undone) this.onDone();
-            });
-        }
+                            }
+                        } else this.onError(err, path, stats);
+                        if (!--this._undone) this.onDone();
+                    });
+                }
+            } else this.onError(err, path, null);
+            if (!--this._undone) this.onDone();
+        });
     }
 }
 exports.Prober = Prober;
 
 
 class Hasher {
-    /**
-     * @param {DevTable} tree 
-     * @param {HasherStats} stats 
-     */
-    constructor (tree, stats) {
-        this.setTree(tree);
+    constructor (data, stats) {
+        this.setData(data);
         this.setStats(stats);
         this._undone = 0;
     }
-    /**
-     * @param {DevTable} tree 
-     */
-    setTree (tree) {
-        this.tree = isObject(tree) ? tree : {};
-        return this;
+    setData (data) {
+        this.data = isObject(data) ? data : {};
     }
-    /**
-     * @typedef {{hash: SizeCount}} HasherStats
-     * @param {HasherStats} stats 
-     */
     setStats (stats) {
         if (isObject(stats)) {
             if (!isObject(stats.hash)) stats.hash = { size: 0, count: 0 };
@@ -403,23 +359,11 @@ class Hasher {
             hash: { size: 0, count: 0 },
         };
         this.stats = stats;
-        return this;
     }
-    /**
-     * @param {() => NodeJS.ReadWriteStream} newHash 
-     */
-    setNewHash (newHash) {
-        this.newHash = newHash;
-        return this;
-    }
-    /**
-     * @typedef {(path: string, size: number, callback: (err: string, digest: string) => void) => void} HasherHashFunc
-     * @param {HasherHashFunc} hash 
-     */
-    hash (hash) {
+    hash (hashFunc) {
         ++this._undone;
-        for (const dev of Object.keys(this.tree)) { ++this._undone;
-            const works = iterHashWorks(this.tree, dev); 
+        for (const dev of Object.keys(this.data)) { ++this._undone;
+            const works = iterHashWorks(this.data, dev); 
             let paths = [], size = 0, i = 0;
             const callback = (err, digest) => {
                 if (!err) {
@@ -437,7 +381,7 @@ class Hasher {
                     if (next.done) { if (!--this._undone) this.onDone(); return; }
                     paths = next.value.paths, size = next.value.size, i = 0;
                 }
-                return hash(paths[i], size, callback);
+                return hashFunc(paths[i], size, callback);
             };
             next("");
         }

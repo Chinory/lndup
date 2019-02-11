@@ -40,3 +40,6 @@ export class MPHash {
     
     hash(path: string, size: number, callback: (err: string, digest: string) => void, childIndex?: number): void;
 }
+
+type HashCallback = (err: string, digest: string) => void;
+type HashFunction = (path: string, size: number, callback: HashCallback) => void;
