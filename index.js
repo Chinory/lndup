@@ -136,6 +136,11 @@ class MPHash {
             }
         });
     }
+    closeChild (i) {
+        const child = this.childs[i];
+        i < this.childs.length - 1 ? this.childs[i] = this.childs.pop() : this.childs.pop();
+        child.proc.stdin.end();
+    }
     closeChilds () {
         for (var child; (child = this.childs.pop());) {
             child.proc.stdin.end();
@@ -343,11 +348,17 @@ class Prober {
 exports.Prober = Prober;
 
 
-class Hasher {
-    constructor (data, stats) {
+class MPHashHasher {
+    /**
+     * @param {MPHash} mphash 
+     */
+    constructor (data, stats, algorithm = "sha1", encoding = "hex", localBufferSize = 4096, childBufferSize = 8388608) {
         this.setData(data);
         this.setStats(stats);
+        this.mphash = new MPHash(algorithm, encoding, localBufferSize, childBufferSize);
+        this.mphash.setStats(this.stats);
         this._undone = 0;
+        this._opened = false;
     }
     setData (data) {
         this.data = isObject(data) ? data : {};
@@ -360,17 +371,33 @@ class Hasher {
         };
         this.stats = stats;
     }
-    hash (hashFunc) {
+    open () {
+        if (!this._opened) {
+            this.mphash.open(Object.keys(this.data).length);
+            this._opened = true;
+        }
+    }
+    close () {
+        if (this._opened) {
+            this.mphash.close();
+            this._opened = false;
+        }
+    }
+    hash () {
+        if (!this._opened) return;
         const iters = Object.keys(this.data).map(dev => iterHashWorks(this.data, dev));
         for (let n = iters.length; n > 0;) for (let i = 0; i < n; ++i) {
             const { done, value: work } = iters[i].next();
-            if (!done) hashFunc(work.paths[0], work.size, (err, digest) => {
+            if (!done) this.mphash.hash(work.paths[0], work.size, (err, digest) => {
                 if (!err) {
                     finishHashWork(work, digest);
                     const st = this.stats.hash;
                     st.size += work.size; ++st.count;
                 }
-            }); else i < --n ? iters[i] = iters.pop() : iters.pop();
+            }, i); else {
+                this.mphash.closeChild(i);
+                if (i < --n) iters[i] = iters.pop(); else iters.pop();
+            }
         }
     }
     /** 
@@ -392,7 +419,7 @@ class Hasher {
         return;
     }
 }
-exports.Hasher = Hasher;
+exports.MPHashHasher = MPHashHasher;
 
 class Linker {
     /**
