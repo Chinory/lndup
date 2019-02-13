@@ -7,25 +7,25 @@ const iterHashWorks = exports.iterHashWorks = function* (devTable, dev) {
         for (var j = 0; j < exkeys.length; ++j) {
             var digestTable = exkeyTable[exkeys[j]], inoTable, inos;
             if ((inoTable = digestTable[""]) && (inos = Object.keys(inoTable)).length > 1)
-                yield { size, digestTable, digest: "", inos };
-                // for (var k = 0; k < inos.length; ++k) {
-                //     var ino = inos[k], paths = inoTable[ino];
-                //     yield { size, digestTable, digest: "", ino, paths };
-                // }
+                // yield { size, digestTable, digest: "", inos };
+                for (var k = 0; k < inos.length; ++k) {
+                    var ino = inos[k], paths = inoTable[ino];
+                    yield { size, digestTable, digest: "", ino, paths };
+                }
         }
     }
 };
 
 
-const finishHashWork = exports.finishHashWork = function (work, ino, newDigest) {
+const finishHashWork = exports.finishHashWork = function (work, newDigest) {
     var inoTableOld, pathsOld, inoTableNew, pathsNew;
-    if ((inoTableOld = work.digestTable[work.digest]) && (pathsOld = inoTableOld[ino])) {
+    if ((inoTableOld = work.digestTable[work.digest]) && (pathsOld = inoTableOld[work.ino])) {
         if ((inoTableNew = work.digestTable[newDigest])) { if (inoTableNew === inoTableOld) return; }
         else inoTableNew = work.digestTable[newDigest] = {};
-        if ((pathsNew = inoTableNew[ino]) && pathsNew !== pathsOld) 
+        if ((pathsNew = inoTableNew[work.ino]) && pathsNew !== pathsOld) 
             for (let i = 0; i < pathsOld.length; ++i) pathsNew.push(pathsOld[i]);
-        else inoTableNew[ino] = pathsOld.slice();
-        delete inoTableOld[ino];
+        else inoTableNew[work.ino] = pathsOld.slice();
+        delete inoTableOld[work.ino];
         work.digest = newDigest;
     }
 };
@@ -361,34 +361,19 @@ class Hasher {
         this.stats = stats;
     }
     hash (hashFunc) {
-        ++this._undone;
-        for (const dev of Object.keys(this.data)) { ++this._undone;
-            const works = iterHashWorks(this.data, dev); 
-            let paths = [], size = 0, i = 0;
-            const callback = (err, digest) => {
+        const iters = Object.keys(this.data).map(dev => iterHashWorks(this.data, dev));
+        for (let n = iters.length; n > 0;) for (let i = 0; i < n; ++i) {
+            const { done, value: work } = iters[i].next();
+            if (!done) hashFunc(work.paths[0], work.size, (err, digest) => {
                 if (!err) {
-                    this.stats.hash.count++;
-                    this.stats.hash.size += size;
-                    return next(digest); 
-                } else {
-                    this.onError(err, paths[i]);
-                    return next("");  
+                    finishHashWork(work, digest);
+                    const st = this.stats.hash;
+                    st.size += work.size; ++st.count;
                 }
-            };
-            const next = digest => { 
-                if (digest || !(++i < paths.length)) {
-                    const next = works.next(digest);
-                    if (next.done) { if (!--this._undone) this.onDone(); return; }
-                    paths = next.value.paths, size = next.value.size, i = 0;
-                }
-                return hashFunc(paths[i], size, callback);
-            };
-            next("");
+            }); else i < --n ? iters[i] = iters.pop() : iters.pop();
         }
-        if (!--this._undone) this.onDone();
-        return this;
     }
-    /**
+    /** 
      * @param {string} event 
      * @param {Function} listener 
      */
