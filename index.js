@@ -236,7 +236,7 @@ class Prober {
         this.setData(data);
         this.setStats(stats);
         this.visited = {};
-        this._undone = 0;
+        this._undone = 0; // opened + syscalls
         this._opened = false;
     }
     setData (data) {
@@ -318,7 +318,7 @@ class Prober {
                         if (stats.size > 0 && this.onFile(stats, name, path)) {
                             this.stats.select.count++;
                             this.stats.select.size += stats.size;
-                            var node = this.data, key;
+                            let node = this.data, key;
                             node = node[key = stats.dev + ""] || (node[key] = {});
                             node = node[key = stats.size + ""] || (node[key] = {});
                             node = node[key = this.onExkey(stats, name, path)] || (node[key] = {});
