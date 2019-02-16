@@ -99,9 +99,9 @@ class MPHash {
         this.setStats();
         this.childs = [];
         this.childTurn = -1;
-        this._childArgs = [MPHash.HASHD_PATH, algorithm, encoding, childBufferSize + ""];
+        this._childArgs = [_path.join(__dirname, "bin", "hashd"), algorithm, encoding, childBufferSize + ""];
         this._buffer = Buffer.alloc(localBufferSize);
-        this._undone = 0;
+        this._undone = 0; // opened + usableChilds
         this._opened = false;
     }
     setStats (stats) {
@@ -116,7 +116,7 @@ class MPHash {
     }
     createChild () {
         const child = { works: new Queue(), errs: new Queue(),
-            proc: child_process.spawn(process.execPath, this._childArgs, {windowsHide: true}),
+            proc: child_process.spawn(process.execPath, this._childArgs, { windowsHide: true }),
         };
         this.childs.push(child); ++this._undone;
         child.proc.on("error", err => this.onError(err));
@@ -128,7 +128,8 @@ class MPHash {
         readline.createInterface(child.proc.stderr).on("line", err => child.errs.enqueue(err));
         readline.createInterface(child.proc.stdout).on("line", digest => { 
             var work = child.works.dequeue();
-            if (work) if (digest) {
+            if (!work) return;
+            if (digest) {
                 this.stats.hashExt.size += work.size; ++this.stats.hashExt.count;
                 return work.callback("", digest);
             } else {
@@ -142,7 +143,7 @@ class MPHash {
         child.proc.stdin.end();
     }
     closeChilds () {
-        for (var child; (child = this.childs.pop());) {
+        for (let child; (child = this.childs.pop());) {
             child.proc.stdin.end();
         }
     }
@@ -183,13 +184,12 @@ class MPHash {
                     .update(this._buffer.slice(0, fs.readSync(fd, this._buffer, 0, this._buffer.length, 0)))
                     .digest(this._childArgs[2]);
             } catch (err) {
-                fs.closeSync(fd);
-                setImmediate(callback, String(err), "");
+                const errString = String(err);
+                fs.close(fd, () => callback(errString, ""));
                 return;
             }
+            fs.close(fd, () => callback("", digest));
             this.stats.hashInt.size += size; ++this.stats.hashInt.count;
-            fs.closeSync(fd);
-            setImmediate(callback, "", digest);
         }
     }
     /**
@@ -210,7 +210,6 @@ class MPHash {
         return;
     }
 }
-MPHash.HASHD_PATH = _path.join(__dirname, "bin", "hashd");
 exports.MPHash = MPHash;
 
 /**
