@@ -17,6 +17,8 @@ type SizeCount = { size: number, count: number }
 type SizeSrcDst = { size: number, src: number, dst: number }
 
 export class Queue<T> {
+    static create(refData: Array<T>): Queue<T>;
+    static from(copyData: Array<T>): Queue<T>;
     enqueue(item: T): void;
     dequeue(def?: T): T;
 }
@@ -31,6 +33,8 @@ interface MPHashStats {
     hashExt: SizeCount;
 }
 export class MPHash {
+    static create(algorithm?: string, encoding?: string, localBufferSize?: number, childBufferSize?: number): MPHash;
+
     stats: MPHashStats;
     setStats(stats: MPHashStats): void;
 

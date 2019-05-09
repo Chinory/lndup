@@ -49,9 +49,9 @@ try {
 
 const shellescape = opt.verbose ? require("shell-escape") : null;
 const lndup = require(".."), tree = {}, stats = {},
-    prober = new lndup.Prober(tree, stats),
-    hasher = new lndup.Hasher(tree, stats),
-    linker = new lndup.Linker(tree, stats);
+    prober = lndup.Prober.create(tree, stats),
+    hasher = lndup.Hasher.create(tree, stats),
+    linker = lndup.Linker.create(tree, stats);
 
 if (opt.error) {
     prober.onError = err => console.error(`#${err}`);
@@ -83,7 +83,7 @@ const printTable = rows => {
     }
 };
 
-const mphash = new lndup.MPHash();
+const mphash = lndup.MPHash.create();
 
 if (opt.prompt) {
     console.time("#Time: probe");
@@ -139,11 +139,11 @@ prober.open();
 if (opt.stdin) {
     const inputArgv = i => {
         if (i < opt.paths.length) {
-            prober.probe(opt.paths[i]);
+            prober.write(opt.paths[i]);
             setImmediate(inputArgv, i + 1);
         } else {
             require("readline").createInterface(process.stdin)
-                .on("line", path => prober.probe(path))
+                .on("line", path => prober.write(path))
                 .on("close", () => prober.close());
         }
     };
@@ -151,7 +151,7 @@ if (opt.stdin) {
 } else {
     const inputArgv = i => {
         if (i < opt.paths.length) {
-            prober.probe(opt.paths[i]);
+            prober.write(opt.paths[i]);
             setImmediate(inputArgv, i + 1);
         } else {
             prober.close();

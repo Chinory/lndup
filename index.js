@@ -72,9 +72,15 @@ const isObject = obj => obj !== null && typeof obj === "object";
 const noop = () => {};
 
 class Queue {
-    constructor () {
+    constructor (data) {
         this._in = [];
-        this._out = [];
+        this._out = data;
+    }
+    static create (refData = []) {
+        return new Queue(refData);
+    }
+    static from (copyData = []) {
+        return new Queue(copyData.slice());
     }
     enqueue (item) {
         this._in.push(item);
@@ -95,7 +101,7 @@ exports.Queue = Queue;
 
 
 class MPHash {
-    constructor (algorithm = "sha1", encoding = "hex", localBufferSize = 4096, childBufferSize = 8388608) {
+    constructor (algorithm, encoding, localBufferSize, childBufferSize) {
         this.setStats();
         this.childs = [];
         this.childTurn = -1;
@@ -103,6 +109,9 @@ class MPHash {
         this._buffer = Buffer.alloc(localBufferSize);
         this._undone = 0; // opened + usableChilds
         this._opened = false;
+    }
+    static create (algorithm = "sha1", encoding = "hex", localBufferSize = 4096, childBufferSize = 8388608) {
+        return new MPHash(algorithm, encoding, localBufferSize, childBufferSize);
     }
     setStats (stats) {
         if (isObject(stats)) {
@@ -115,7 +124,9 @@ class MPHash {
         this.stats = stats;
     }
     createChild () {
-        const child = { works: new Queue(), errs: new Queue(),
+        const child = {
+            works: Queue.create(),
+            errs: Queue.create(),
             proc: child_process.spawn(process.execPath, this._childArgs, { windowsHide: true }),
         };
         this.childs.push(child); ++this._undone;
@@ -239,6 +250,9 @@ class Prober {
         this._undone = 0; // opened + syscalls
         this._opened = false;
     }
+    static create (data, stats) {
+        return new Prober(data, stats);
+    }
     setData (data) {
         this.data = isObject(data) ? data : {};
     }
@@ -269,7 +283,7 @@ class Prober {
     /**
      * @param {string} path 
      */
-    probe (path) {
+    write (path) {
         if (this._opened) {
             this._stat(path, _path.basename(path), _path.resolve(path));
         }
@@ -348,13 +362,16 @@ exports.Prober = Prober;
 
 
 class Hasher {
-    constructor (data, stats, algorithm = "sha1", encoding = "hex", localBufferSize = 4096, childBufferSize = 8388608) {
+    constructor (data, stats, algorithm, encoding , localBufferSize, childBufferSize) {
         this.setData(data);
         this.setStats(stats);
-        this.mphash = new MPHash(algorithm, encoding, localBufferSize, childBufferSize);
+        this.mphash = MPHash.create(algorithm, encoding, localBufferSize, childBufferSize);
         this.mphash.setStats(this.stats);
         this._undone = 0;
         this._opened = false;
+    }
+    static create (data, stats, algorithm, encoding , localBufferSize, childBufferSize) {
+        return new Hasher(data, stats, algorithm, encoding, localBufferSize, childBufferSize);
     }
     setData (data) {
         this.data = isObject(data) ? data : {};
@@ -374,17 +391,10 @@ class Hasher {
             ++this._undone;
         }
     }
-    close () {
-        if (this._opened) {
-            this.mphash.close();
-            this._opened = false;
-            if (!--this._undone) setImmediate(() => this.onDone());
-        }
-    }
     hash () {
         if (!this._opened) return; else ++this._undone;
         const iters = Object.keys(this.data).map(dev => iterHashWorks(this.data, dev));
-        const process = () => {
+        const hashNext = () => {
             for (let i = 0; i < iters.length; ++i) {
                 const result = iters[i].next();
                 if (!result.done) {
@@ -401,10 +411,17 @@ class Hasher {
                     if (i < iters.length - 1) iters[i] = iters.pop(); else iters.pop();
                 }
             }
-            if (iters.length) setImmediate(process);
+            if (iters.length) setImmediate(hashNext);
             else if (!--this._undone) this.onDone(); 
         };
-        setImmediate(process);
+        setImmediate(hashNext);
+    }
+    close () {
+        if (this._opened) {
+            this.mphash.close();
+            this._opened = false;
+            if (!--this._undone) setImmediate(() => this.onDone());
+        }
     }
     /** 
      * @param {string} event 
@@ -436,6 +453,9 @@ class Linker {
         this.setTree(tree);
         this.setStats(stats);
         this._undone = 0;
+    }
+    static create (tree, stats) {
+        return new Linker(tree, stats);
     }
     /**
      * @param {DevTable} tree 

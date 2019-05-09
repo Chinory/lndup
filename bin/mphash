@@ -8,7 +8,7 @@ const fs = require("fs"), os = require("os"), lndup = require(".."), readline = 
 process.stdout.on("error", process.exit);
 process.stderr.on("error", process.exit);
 
-const hash = new lndup.MPHash(algorithm, encoding, localBufferSize, childBufferSize);
+const hash = lndup.MPHash.create(algorithm, encoding, localBufferSize, childBufferSize);
 hash.open(os.cpus().length);
 readline.createInterface(process.stdin).on("close", () => hash.close()).on("line", path => {
     let size = 0;
