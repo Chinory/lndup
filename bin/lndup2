@@ -1,0 +1,204 @@
+#!/usr/bin/env node
+'use strict'
+
+import { createHash } from 'crypto'
+import { stat, readdir, link, rename, unlink, open, read, close } from 'fs/promises'
+import { basename, join } from 'path'
+import { parseArgs } from 'node:util'
+import { Worker, isMainThread, parentPort, workerData } from 'worker_threads'
+import { createInterface } from 'readline'
+
+// 工具函数
+const humanSize = bytes => {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let i = 0
+  while (bytes >= 1024 && i < units.length - 1) {
+    bytes /= 1024
+    i++
+  }
+  return `${bytes.toFixed(2)} ${units[i]}`
+}
+
+class DefaultMap extends Map {
+  getOrCreate(key, Type = Array) {
+    if (!this.has(key)) this.set(key, new Type())
+    return this.get(key)
+  }
+}
+
+// Worker 线程处理哈希计算
+if (!isMainThread) {
+  parentPort.on('message', async filePath => {
+    try {
+      const hash = createHash(workerData.algorithm)
+      const fd = await open(filePath, 'r')
+      const stream = fd.createReadStream()
+      
+      for await (const chunk of stream) {
+        hash.update(chunk)
+      }
+      
+      parentPort.postMessage({ 
+        path: filePath, 
+        digest: hash.digest('hex') 
+      })
+    } catch (err) {
+      parentPort.postMessage({ 
+        path: filePath, 
+        error: err.message 
+      })
+    }
+  })
+  process.exit(0)
+}
+
+// 主程序
+async function main() {
+  const { 
+    values: flags,
+    positionals: paths
+  } = parseArgs({
+    options: {
+      'dry-run': { type: 'boolean', short: 'n' },
+      verbose: { type: 'boolean', short: 'v' },
+      quiet: { type: 'boolean', short: 'q' },
+      stdin: { type: 'boolean', short: 'i' },
+      hash: { type: 'string', short: 'H', default: 'sha256' },
+      help: { type: 'boolean', short: 'h' },
+      version: { type: 'boolean', short: 'V' }
+    },
+    allowPositionals: true
+  })
+
+  if (flags.help) {
+    showHelp()
+    return
+  }
+
+  // 文件探测阶段
+  const fileMap = await probeFiles([
+    ...paths,
+    ...(flags.stdin ? await readStdinPaths() : [])
+  ])
+
+  // 哈希验证阶段
+  const hashGroups = await verifyHashes(fileMap, flags.hash)
+
+  // 生成解决方案
+  const solutions = generateSolutions(hashGroups)
+
+  // 执行硬链接
+  await executeLinks(solutions, flags)
+}
+
+async function probeFiles(paths) {
+  const fileMap = new DefaultMap() // device -> size -> paths
+
+  const processEntry = async (currentPath) => {
+    const stats = await stat(currentPath).catch(() => null)
+    if (!stats) return
+
+    if (stats.isDirectory()) {
+      const entries = await readdir(currentPath)
+      for (const entry of entries) {
+        await processEntry(join(currentPath, entry))
+      }
+    } else if (stats.isFile() && stats.size > 0) {
+      fileMap.getOrCreate(stats.dev, Map)
+            .getOrCreate(stats.size)
+            .push(currentPath)
+    }
+  }
+
+  await Promise.all(paths.map(processEntry))
+  return fileMap
+}
+
+async function verifyHashes(fileMap, algorithm) {
+  const hashGroups = new Map()
+  const workers = new Set()
+
+  const processFile = (filePath) => new Promise(resolve => {
+    const worker = new Worker(new URL(import.meta.url), { 
+      workerData: { algorithm }
+    })
+    
+    worker.on('message', ({ path, digest, error }) => {
+      if (error) {
+        console.error(`Error hashing ${path}: ${error}`)
+        return resolve()
+      }
+      
+      hashGroups.getOrCreate(digest).push(path)
+      resolve()
+    })
+    
+    worker.postMessage(filePath)
+    workers.add(worker)
+  })
+
+  for (const [device, sizeMap] of fileMap) {
+    for (const [size, paths] of sizeMap) {
+      if (paths.length > 1) {
+        await Promise.all(paths.map(processFile))
+      }
+    }
+  }
+
+  workers.forEach(w => w.terminate())
+  return hashGroups
+}
+
+function generateSolutions(hashGroups) {
+  return Array.from(hashGroups.values())
+    .filter(group => group.length > 1)
+    .map(group => ({
+      source: group[0],
+      duplicates: group.slice(1)
+    }))
+}
+
+async function executeLinks(solutions, flags) {
+  let totalSaved = 0
+
+  for (const { source, duplicates } of solutions) {
+    for (const target of duplicates) {
+      if (flags.verbose) {
+        console.log(`Linking ${source} -> ${target}`)
+      }
+
+      if (!flags['dry-run']) {
+        try {
+          await link(source, target)
+          totalSaved += (await stat(source)).size
+        } catch (err) {
+          console.error(`Failed to link ${target}: ${err.message}`)
+        }
+      }
+    }
+  }
+
+  if (!flags.quiet) {
+    console.log(`Estimated space saved: ${humanSize(totalSaved)}`)
+  }
+}
+
+function showHelp() {
+  console.log(`
+Usage: lndup [OPTIONS] [PATHS...]
+
+Options:
+  -n, --dry-run   模拟运行不实际创建链接
+  -v, --verbose   显示详细操作信息
+  -q, --quiet     不显示统计信息
+  -i, --stdin     从标准输入读取路径
+  -H, --hash      指定哈希算法 (默认: sha256)
+  -h, --help      显示帮助信息
+  -V, --version   显示版本信息
+`)
+}
+
+main().catch(err => {
+  console.error('Fatal error:', err)
+  process.exit(1)
+})
