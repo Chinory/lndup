@@ -1,21 +1,36 @@
-# lndup
+# lndup 🧷✨
 
-Hardlink duplicate files. Ultra fast!
+Hardlink duplicate files — **fast**, **scriptable**, and **Unix-friendly** 🐧⚡
 
-- asynchronous I/O
-- one file one stat() call
-- full-speed hash least files
-- customize filters and keys with javascript
+`lndup` finds duplicate files and replaces duplicates with **hard links** (so they share the same inode), saving disk space **without changing file contents**. Neat, right? 😼
 
-## Installation
+## Why lndup 🤔
 
-```
-$ npm i -g lndup
-```
+Most dedup tools are either:
 
-## Usage
+- 🚀 **fast but rigid** (fixed rules), or
+- 🧩 **flexible but clunky** (external scripts, awkward integration).
 
-```
+`lndup` is different: you can **inject tiny JavaScript functions** as filters and keys — naturally, like writing Node.js callbacks. One-liners welcome ✨
+
+### Highlights 🌟
+
+- ⚡ **Asynchronous I/O** (fast traversal on big trees)
+- 📉 **Minimal metadata overhead**: one `stat()` per file
+- 🔍 **Hash only what’s necessary** (“least files” strategy)
+- 🧠 **JavaScript injection** for filters & keys (standard Node.js `fs.Stats` API)
+
+> 🚫 Does **not** follow symbolic links.
+
+## Installation 📦
+
+```bash
+npm i -g lndup
+````
+
+## Usage 🧰
+
+```text
 Usage: lndup [OPTION]... [PATH]...
 Hardlink duplicate files.
 
@@ -35,15 +50,40 @@ Hardlink duplicate files.
 
   -h, --help     display this help and exit
   -V, --version  output version information and exit
-
-See <https://github.com/chinory/lndup>
 ```
 
-- Not follow symbolic links.
+## Quick start 🚀
 
-## Example
+### 1) Dry-run first (recommended) ✅
 
-All outputs are executable unix-shell code, using comment to carry extra information.
+```bash
+lndup -n -v /path/to/scan
+```
+
+### 2) Actually hardlink duplicates 🧷
+
+```bash
+lndup -v /path/to/scan
+```
+
+### 3) Feed paths via stdin 🍜
+
+```bash
+find /data -type f -print0 | lndup -i -n -v
+```
+
+## Output model (important!) 🧾✨
+
+`lndup` prints **executable Unix-shell commands** to stdout.
+Extra information is carried in `# comments`.
+
+That means it’s:
+
+* 👀 easy to review / audit,
+* 🧪 safe to start with `--dry-run`,
+* 🧰 easy to pipe into other tools.
+
+Example:
 
 ```shell
 $ lndup -v .
@@ -68,74 +108,121 @@ ln -f -- 'root/ran4_1' 'root/ran4_2' #Error: EACCES: permission denied, rename '
 #Time: execute: 8.331ms
 ```
 
-### Customize filter & key
+## Scriptable filters & keys (core feature) 🧠🔧
 
-**File Filters**: If you don't want to hardlink files smaller than 1024 bytes:
+### File filter (`-f`) 🗂️
 
-```shell
-$ lndup /path -f 'stats=>stats.size>=1024'
+Skip files smaller than 1024 bytes:
+
+```bash
+lndup /path -f 's => s.size >= 1024'
 ```
 
-**Directory Filters**: While you don't want to consider a directory with more than 100 files:
+Only process files owned by a specific uid (example: 1001):
 
-```shell
-$ lndup /path -f 'stats=>stats.size>=1024' -d '(s,p,f)=>f.length<=100'
+```bash
+lndup /path -f '(s, p) => s.uid === 1001'
 ```
 
-**Extra keys**: Obviously, you don't want to hardlink the same files with different user, group and mode:
+### Directory filter (`-d`) 📁
 
-```shell
-$ lndup /path -k 's=>s.uid' -k 's=>s.gid' -k 's=>s.mode'
+Ignore directories with more than 100 files:
+
+```bash
+lndup /path -d '(s, p, files) => files.length <= 100'
 ```
 
-**Require more**: Finally, you have a super idea:
+Combine filters like LEGO 🧱:
 
-```shell
-$ lndup /path -k 'require("/path/to/keyfunc.js")' -f 'require("/path/to/filter.js")'
+```bash
+lndup /path \
+  -f 's => s.size >= 1024' \
+  -d '(s, p, files) => files.length <= 100'
 ```
 
-## Notice
+### Extra keys (`-k`) 🔑
 
-Failed operation will be output to stderr like following:
+By default, duplicates are decided by content (hash).
+If you want to avoid hardlinking across different metadata constraints, add keys.
+
+Example: separate by uid / gid / mode:
+
+```bash
+lndup /path -k 's => s.uid' -k 's => s.gid' -k 's => s.mode'
+```
+
+### Require your own JS modules 📎
+
+```bash
+lndup /path \
+  -k 'require("/path/to/keyfunc.js")' \
+  -f 'require("/path/to/filter.js")'
+```
+
+> 💡 Tip: keep your filter/key functions **pure and cheap** (no I/O) for best performance.
+
+## Safety & recovery (aka “what if something fails?”) 🛡️🧯
+
+Hardlinking is fast, but it’s not always “atomic” — permissions, readonly dirs, races… stuff happens 😅
+
+So `lndup` executes each link as a **3-step mini-transaction**:
+
+1. 🏷️ **Rename the target file** to a temporary name with a random hex suffix
+   (e.g. `file` → `file.<hex>`)
+2. 🧷 **Create the hardlink** (`ln`) from the chosen source inode to the target path
+3. 🧹 **Delete the temporary file** (`rm file.<hex>`) after the link succeeds
+
+### Recovery commands 🧰
+
+If something fails mid-way, `lndup` prints the failing command to **stderr** and may also emit
+**recovery / rollback commands** so you can restore consistency:
+
+* `mv` to put the original file back (undo step 1)
+* `rm` to remove a newly-created link if needed (undo step 2)
+
+Example:
 
 ```shell
 ln -f -- 'root/ran4_1' 'root/ran4_2' #Error: EACCES: permission denied, rename 'root/ran4_2' -> 'root/ran4_2.e8c70ebe0635ab41'
 ```
 
-Beware of `mv` and `rm` fails, they are remedies of failed link operation, **you need to complete them manually**. Fortunately, the remedies rarely fail, as they are all counter-operations of just-successful operations.
+### Safety-first rule 🧡
 
-## Requirement
+Recovery commands are designed to be the **inverse of just-completed steps**, so failures are rare.
+But if a recovery command fails, you’ll need to run it manually.
 
-- Node.js >=9
+When in doubt, `lndup` prefers leaving extra files behind over risking data loss:
+**space saving is optional, your data isn’t** ✅
 
-## Introduction
+## Requirements ✅
 
-### data structure
+* Node.js >= 9
 
-```javascript
+## How it works (internals) 🧩
+
+### Data structure 🗺️
+
+```js
 // nested maps
-devMap // devMap instanceof Map
-sizeMap = devMap[stat.dev] // sizeMap instanceof Map
-exkeyMap = sizeMap[stat.size] // exkeyMap instanceof Map
-contentMap = exkeyMap[value of extra keys] // contentMap instanceof Map
-inoMap = contentMap[hash.digest] // inoMap instanceof Map
-paths = inoMap[stat.ino] // paths instanceof Array
+devMap                        // Map
+sizeMap = devMap[stat.dev]    // Map
+exkeyMap = sizeMap[stat.size] // Map
+contentMap = exkeyMap[extraKeyValue] // Map
+inoMap = contentMap[digest]   // Map
+paths = inoMap[stat.ino]      // Array<string>
 ```
 
-### processing
+### Pipeline 🏃‍♂️
 
-```javascript
+```js
 probe(paths).then(verify).then(solve).then(execute)
 ```
 
-**probe**: Traverse the input paths asynchronously while use the stat()'s result to group files.
+* 🔎 **probe**: async traverse inputs, `stat()` each file, group candidates
+* 🧮 **verify**: hash the least amount of data needed, group by digest
+* 🧠 **solve**: choose a “majority inode” as the link target
+* 🛠️ **execute**: run (or dry-run) the generated link plan
 
-**verify**: Find out least files to hash, and group files by the digest. 
-
-**solve**: Make solution that instruct to hardlink the file whose inode is majority to other files.
-
-**execute**: Execute that solution or just dry-run.
-
-## License
+## License 📜
 
 MIT © Chinory
